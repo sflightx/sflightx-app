@@ -1,0 +1,114 @@
+{
+  "project_info": {
+    "project_number": "219145189221",
+    "firebase_url": "https://sflight-x-default-rtdb.firebaseio.com",
+    "project_id": "sflight-x",
+    "storage_bucket": "sflight-x.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:219145189221:android:8f3b009680e3efb3fe138c",
+        "android_client_info": {
+          "package_name": "com.sflightx"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "219145189221-57l5m6kqea7dr6el4fghul64n9906i4m.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.sflightx",
+            "certificate_hash": "61ed377e85d386a8dfee6b864bd85b0bfaa5af81"
+          }
+        },
+        {
+          "client_id": "219145189221-vkh9acbj3obhb0i1k3247e1lvdgvbsqd.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBlQ0YzDiZuSuYhMLA4sg5FXxC4Gn2BpTI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "219145189221-vkh9acbj3obhb0i1k3247e1lvdgvbsqd.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:219145189221:android:35a3243f3e2cdfb3fe138c",
+        "android_client_info": {
+          "package_name": "com.sflightx.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "219145189221-dhtbvnh6lpbgsn737jiealjfqc18h3ks.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.sflightx.app",
+            "certificate_hash": "bedf2f1504a5ce2b9dd73c70166af2a94328aeb7"
+          }
+        },
+        {
+          "client_id": "219145189221-vkh9acbj3obhb0i1k3247e1lvdgvbsqd.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBlQ0YzDiZuSuYhMLA4sg5FXxC4Gn2BpTI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "219145189221-vkh9acbj3obhb0i1k3247e1lvdgvbsqd.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:219145189221:android:563aacd733d3d4ecfe138c",
+        "android_client_info": {
+          "package_name": "com.sflightx.dev"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "219145189221-vkh9acbj3obhb0i1k3247e1lvdgvbsqd.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBlQ0YzDiZuSuYhMLA4sg5FXxC4Gn2BpTI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "219145189221-vkh9acbj3obhb0i1k3247e1lvdgvbsqd.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
