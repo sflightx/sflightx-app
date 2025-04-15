@@ -9,31 +9,31 @@ import android.app.*
 import android.app.Activity.RESULT_OK
 import android.content.*
 import android.content.pm.*
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
+import android.graphics.*
 import android.net.*
 import android.os.*
-import android.provider.Settings
-import android.util.Log
+import android.provider.*
+import android.util.*
 import android.widget.*
 import androidx.activity.*
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.*
-import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.*
 import androidx.activity.result.contract.*
+import androidx.browser.customtabs.*
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.shape.*
-import androidx.compose.material.icons.*
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.MaterialTheme.colorScheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.*
+import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.vector.*
 import androidx.compose.ui.input.nestedscroll.*
 import androidx.compose.ui.layout.*
 import androidx.compose.ui.platform.*
@@ -45,14 +45,20 @@ import androidx.core.app.*
 import androidx.core.content.*
 import androidx.core.net.*
 import coil.compose.*
-import com.sflightx.library.imagecrop.*
+import com.google.firebase.*
 import com.google.firebase.auth.*
 import com.google.firebase.database.*
 import com.google.firebase.storage.*
+import com.google.gson.*
+import com.google.gson.reflect.*
+import com.sflightx.app.bottomsheet.*
 import com.sflightx.app.ui.theme.*
+import com.sflightx.library.imagecrop.*
 import kotlinx.coroutines.*
-import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.tasks.*
 import java.io.*
+import java.text.*
+import java.util.*
 
 
 @Suppress("DEPRECATION")
@@ -63,26 +69,29 @@ class MainActivity : ComponentActivity() {
     private val KEY_FIRST_BOOT = "first_boot"
     private lateinit var cropImageLauncher: ActivityResultLauncher<Intent>
 
+
     override fun onCreate(savedInstanceState: Bundle?) {
         ensureDirectoryExists(this)
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             SFlightXTheme {
-                MainAppLayout(
-                    STORAGE_PERMISSION_CODE,
-                    onOpenCropActivity = { imageUri ->
-                        val intent = Intent(this, com.sflightx.library.imagecrop.CropActivity::class.java).apply {
-                            putExtra("imageUri", imageUri)
+                GlobalBottomSheetHost {
+                    MainAppLayout(
+                        STORAGE_PERMISSION_CODE,
+                        onOpenCropActivity = { imageUri ->
+                            val intent = Intent(this, CropActivity::class.java).apply {
+                                putExtra("imageUri", imageUri)
+                            }
+                            cropImageLauncher.launch(intent)
                         }
-                        cropImageLauncher.launch(intent)
-                    }
-                )
+                    )
+                }
+
             }
         }
 
         if (isFirstBoot(this)) {
-            Toast.makeText(this, "App hasn't booted before", Toast.LENGTH_SHORT).show()
             val intent = Intent(this, FirstBootActivity::class.java)
             intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
             startActivity(intent)
@@ -122,10 +131,13 @@ fun MainAppLayout(
     onOpenCropActivity: (Uri) -> Unit
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
+    val bottomSheetController = LocalBottomSheetController.current
+
     var selectedTab by remember { mutableIntStateOf(0) }
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    val color = MaterialTheme.colorScheme.background.toArgb()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var showBottomSheet by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
@@ -173,6 +185,9 @@ fun MainAppLayout(
         }
     )
 
+    bottomSheetController.show {
+        CheckUpdates()
+    }
 
     if (showLogoutDialog) {
         AlertDialog(
@@ -234,7 +249,6 @@ fun MainAppLayout(
     }
 
     FirebaseAuth.getInstance().currentUser
-
     Scaffold(
         snackbarHost = {
             SnackbarHost(hostState = snackbarHostState)
@@ -269,16 +283,16 @@ fun MainAppLayout(
                             )
                         } else {
                             Icon(
-                                imageVector = Icons.Default.AccountCircle,
+                                imageVector = ImageVector.vectorResource(id = R.drawable.account_circle_24px),
                                 contentDescription = "Account",
-                                tint = MaterialTheme.colorScheme.onSurface
+                                tint = colorScheme.onSurface
                             )
                         }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    titleContentColor = MaterialTheme.colorScheme.onBackground,
+                    containerColor = colorScheme.background,
+                    titleContentColor = colorScheme.onBackground,
                 ),
                 actions = {
                     IconButton(onClick = {
@@ -286,7 +300,7 @@ fun MainAppLayout(
                         context.startActivity(intent)
                     }) {
                         Icon(
-                            imageVector = Icons.Filled.Settings,
+                            imageVector = ImageVector.vectorResource(id = R.drawable.settings_24px),
                             contentDescription = "Localized description"
                         )
                     }
@@ -299,22 +313,47 @@ fun MainAppLayout(
                 NavigationBarItem(
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
-                    icon = { Icon(Icons.Filled.Home, contentDescription = "Home") },
+                    icon = {
+                        val iconRes = if (selectedTab == 0) {
+                            R.drawable.home_filled_24px
+                        } else {
+                            R.drawable.home_24px
+                        }
+                        Icon(
+                            painter = painterResource(id = iconRes), // Replace with your drawable resource
+                            contentDescription = "Home"
+                        )
+                    },
                     label = { Text("Home") }
                 )
                 NavigationBarItem(
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
-                    icon = { Icon(Icons.Filled.Edit, contentDescription = "Blueprint") },
+                    icon = {
+                        val iconRes = if (selectedTab == 1) {
+                            R.drawable.edit_filled_24px
+                        } else {
+                            R.drawable.edit_24px
+                        }
+                        Icon(
+                            painter = painterResource(id = iconRes), // Replace with your drawable resource
+                            contentDescription = "Blueprint"
+                        )
+                    },
                     label = { Text("Blueprints") }
                 )
                 NavigationBarItem(
                     selected = selectedTab == 2,
                     onClick = { selectedTab = 2 },
                     icon = {
+                        val iconRes = if (selectedTab == 2) {
+                            R.drawable.newsmode_filled_24px
+                        } else {
+                            R.drawable.newsmode_24px
+                        }
                         Icon(
-                            painter = painterResource(id = R.drawable.newsmode_24px),
-                            contentDescription = "News"
+                            painter = painterResource(id = iconRes), // Replace with your drawable resource
+                            contentDescription = "Home"
                         )
                     },
                     label = { Text("News") }
@@ -324,10 +363,11 @@ fun MainAppLayout(
         floatingActionButton = {
             ExpandableFab(
                 onUploadClick = {
-                    context.startActivity(Intent(context, UploadActivity::class.java))
+                    var url = "https://help.sflightx.com/sflightx-app/upload-using-app"
+                    openCustomTab(context, url, color)
                 },
                 onCreateClick = {
-                    TODO()
+                    Toast.makeText(context, "Soon!", Toast.LENGTH_SHORT)
                 }
             )
         },
@@ -344,6 +384,7 @@ fun MainAppLayout(
                 2 -> NewsContent()
             }
         }
+        FirebaseNotificationSnackbar()
     }
 }
 
@@ -364,7 +405,7 @@ fun HomeContent(context: Context, storagePermissionCode: Int) {
             if (snapshot.exists()) {
                 // Assuming the data is structured as a map of items
                 val blueprintList = snapshot.children.mapNotNull { it.getValue(Blueprint::class.java) }
-                blueprints = blueprintList
+                blueprints = blueprintList.reversed()
             }
         }.addOnFailureListener {
             // Handle errors
@@ -386,18 +427,20 @@ fun HomeContent(context: Context, storagePermissionCode: Int) {
         ) {
             Text(
                 text = "Latest SFS Blueprints",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier
                     .padding(bottom = 8.dp)
                     .weight(1f)
             )
+            /*
             OutlinedButton(
                 onClick = {},
                 modifier = Modifier.padding(bottom = 8.dp)
             ) {
                 Text("See More")
             }
+            */
         }
 
         Row(
@@ -416,8 +459,8 @@ fun HomeContent(context: Context, storagePermissionCode: Int) {
                         .clip(RoundedCornerShape(16.dp))
                 ) {
                     Column(
-                        modifier = Modifier
-                            .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                        modifier = Modifier.animateContentSize()
+                            .background(colorScheme.surfaceContainerLow)
                             .clickable {
                                 val intent = Intent(context, ViewPostActivity::class.java)
                                 intent.putExtra("key", blueprint.key)
@@ -439,7 +482,7 @@ fun HomeContent(context: Context, storagePermissionCode: Int) {
                             modifier = Modifier.padding(start = 8.dp),
                             text = blueprint.name,
                             style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            color = colorScheme.onSurface,
                         )
 
                         Spacer(modifier = Modifier.height(8.dp))
@@ -476,7 +519,7 @@ fun HomeContent(context: Context, storagePermissionCode: Int) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    modifier = Modifier.padding(horizontal = 8.dp)
+                                    modifier = Modifier.padding(8.dp)
                                 ) {
                                     // User Profile Image in Circle
                                     Image(
@@ -484,12 +527,7 @@ fun HomeContent(context: Context, storagePermissionCode: Int) {
                                         contentDescription = null,
                                         modifier = Modifier
                                             .size(40.dp)
-                                            .clip(CircleShape)
-                                            .border(
-                                                2.dp,
-                                                MaterialTheme.colorScheme.onSurface,
-                                                CircleShape
-                                            ),
+                                            .clip(CircleShape),
                                         contentScale = ContentScale.Crop
                                     )
 
@@ -497,7 +535,7 @@ fun HomeContent(context: Context, storagePermissionCode: Int) {
                                     Text(
                                         text = authorName,
                                         style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurface
+                                        color = colorScheme.onSurface
                                     )
                                 }
                             }
@@ -505,7 +543,7 @@ fun HomeContent(context: Context, storagePermissionCode: Int) {
                             Text(
                                 modifier = Modifier.padding(horizontal = 8.dp),
                                 text = "Error loading author data",
-                                color = MaterialTheme.colorScheme.error
+                                color = colorScheme.error
                             )
                         }
 
@@ -542,88 +580,57 @@ fun HomeContent(context: Context, storagePermissionCode: Int) {
 @SuppressLint("CoroutineCreationDuringComposition")
 @Composable
 fun EditContent(context: Context, snackbarHostState: SnackbarHostState) {
-    val directoryPath = File(context.getExternalFilesDir(null), "blob/blueprints")
     val scope = rememberCoroutineScope()
-    val filePaths = getFilePaths(directoryPath.toString(), snackbarHostState)
-    var selectedIndex by remember { mutableIntStateOf(0) }
-    val options = listOf("SFS", "JNO", "Ellipse")
-    Column(
+    var library by remember { mutableStateOf<List<LibraryEntry>>(emptyList()) }
+
+    Column (
         modifier = Modifier
-            .fillMaxSize()
+            .fillMaxWidth()
     ) {
-        SingleChoiceSegmentedButtonRow(
+        Text(
+            text = "Blueprints",
+            color = colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier
+                .padding(bottom = 8.dp)
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Box (
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 16.dp)
         ) {
-            options.forEachIndexed { index, label ->
-                SegmentedButton(
-                    shape = SegmentedButtonDefaults.itemShape(
-                        index = index,
-                        count = options.size
-                    ),
-                    onClick = { selectedIndex = index },
-                    selected = index == selectedIndex,
-                    label = { Text(label) }
-                )
-            }
-        }
-        if (filePaths.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "No such file or directory. Download blueprints in home to get started.",
-                    color = MaterialTheme.colorScheme.onBackground,
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
+            // Log and load the user library inside LaunchedEffect
+            LaunchedEffect(Unit) {
+                Log.d("EditContent", "LaunchedEffect: Loading user library...")
+                val result = loadUserLibrary(context)
 
-            scope.launch {
-                snackbarHostState.showSnackbar("The specified path is not a directory or does not exist.")
-            }
-            return
-        }
-        Column {
-            LazyColumn(
-                modifier = Modifier.padding(start = 8.dp)
-            ) {
-                items(filePaths) { filePath ->
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Info,
-                            contentDescription = "info"
-                        )
-                        Column(
-                            modifier = Modifier
-                                .padding(24.dp)
-                                .weight(1f),
-                        ) {
-                            Text(
-                                text = File(filePath).name,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                style = MaterialTheme.typography.bodyLarge,
-                                modifier = Modifier.padding(bottom = 2.dp)
-                            )
-                            Text(
-                                text = "${File(filePath).length().toLong() / 1024} KB",
-                                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-
-                        Icon(
-                            imageVector = Icons.Default.MoreVert,
-                            contentDescription = "more"
-                        )
-                    }
-                    HorizontalDivider(thickness = 2.dp, modifier = Modifier.padding(2.dp))
+                if (result.isSuccess) {
+                    val data = result.getOrDefault(emptyMap())
+                    Log.d("EditContent", "Library loaded: ${data.size} items")
+                    library = data.values.sortedByDescending { it.timestamp }
+                } else {
+                    val error = result.exceptionOrNull()?.message ?: "Unknown error"
+                    Log.e("EditContent", "Failed to load library: $error")
+                    snackbarHostState.showSnackbar("Error: $error")
+                    Log.d("EditContent", "Snackbar shown with error message")
                 }
+            }
+
+            // Handle empty library state
+            if (library.isEmpty()) {
+                Log.d("EditContent", "Library is empty — showing empty state")
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("No blueprints in your library yet.")
+                }
+            } else {
+                // Use LibraryList composable here
+                Log.d("EditContent", "Rendering LibraryList with ${library.size} items")
+                LibraryList(
+                    library = library,
+                )
             }
         }
     }
@@ -640,8 +647,8 @@ fun NewsContent() {
                 .verticalScroll(rememberScrollState())
         ) {
             Text(
-                text = "Latest SFS Blueprints",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                text = "Latest News",
+                color = colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.titleLarge
             )
         }
@@ -738,9 +745,9 @@ fun ProfileBottomSheetContent(
                     )
                 } else {
                     Icon(
-                        imageVector = Icons.Default.AccountCircle,
+                        painter = painterResource(id = R.drawable.account_circle_24px),
                         contentDescription = "Account",
-                        tint = MaterialTheme.colorScheme.onSurface
+                        tint = colorScheme.onSurface
                     )
                 }
             }
@@ -755,7 +762,7 @@ fun ProfileBottomSheetContent(
                 Text(
                     text = "UID: ${user?.uid}",
                     style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = colorScheme.onSurfaceVariant,
                     modifier = Modifier
                         .padding(bottom = 16.dp)
                         .clickable {
@@ -840,7 +847,7 @@ fun ExpandableFab(
             ) {
                 ExtendedFloatingActionButton(
                     text = { Text("Upload") },
-                    icon = { Icon(Icons.Default.Share, contentDescription = "Upload") },
+                    icon = { Icon(painter = painterResource(id = R.drawable.share_24px), contentDescription = "Upload") },
                     onClick = {
                         expanded = false
                         onUploadClick()
@@ -855,7 +862,7 @@ fun ExpandableFab(
             ) {
                 ExtendedFloatingActionButton(
                     text = { Text("Create") },
-                    icon = { Icon(Icons.Default.Create, contentDescription = "Create") },
+                    icon = { Icon(painter = painterResource(id = R.drawable.add_24px), contentDescription = "Add") },
                     onClick = {
                         expanded = false
                         onCreateClick()
@@ -867,7 +874,7 @@ fun ExpandableFab(
                 onClick = { expanded = !expanded }
             ) {
                 Icon(
-                    imageVector = Icons.Default.Add,
+                    painter = painterResource(id = R.drawable.add_24px),
                     contentDescription = "Toggle",
                     modifier = Modifier.rotate(rotation)
                 )
@@ -899,7 +906,7 @@ fun UpdateDisplayNameDialog(
                 )
                 errorMessage?.let {
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text(it, color = MaterialTheme.colorScheme.onErrorContainer, style = MaterialTheme.typography.bodySmall)
+                    Text(it, color = colorScheme.onErrorContainer, style = MaterialTheme.typography.bodySmall)
                 }
             }
         },
@@ -1012,12 +1019,218 @@ fun uploadProfilePictureToFirebase(
     }
 }
 
+@SuppressLint("UseKtx")
+@Composable
+fun FirebaseNotificationSnackbar() {
+    val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
+    val prefs = context.getSharedPreferences("sflightx.settings", Context.MODE_PRIVATE)
+    val coroutineScope = rememberCoroutineScope()
+    var notification by remember { mutableStateOf<InAppNotification?>(null) }
+
+    // Fetch notification only once
+    LaunchedEffect(Unit) {
+        fetchInAppNotification { notif ->
+            if (notif != null) {
+                Log.d("InAppNotification", "Fetched Notification: ${notif}")
+
+                // Check if visible field is true
+                if (notif.visible) {
+                    // Log and proceed with showing the snackbar
+                    Log.d("InAppNotification", "Notification visible: ${notif.message}")
+
+                    // Define the key for SharedPreferences to track whether the user has seen this notification
+                    val seenKey = "notif_seen_${notif.title}_${notif.timestamp}"
+
+                    // Check if the key exists in SharedPreferences
+                    val hasSeen = prefs.contains(seenKey) && prefs.getBoolean(seenKey, false)
+
+                    // If the notification hasn't been seen, show it
+                    if (!hasSeen) {
+                        notification = notif
+
+                        // Use coroutineScope to show the snackbar
+                        coroutineScope.launch {
+                            val result = snackbarHostState.showSnackbar(
+                                message = notif.message,
+                                actionLabel = "Dismiss",
+                                duration = SnackbarDuration.Indefinite
+                            )
+                            // When user dismisses the snackbar, mark it as seen
+                            if (result == SnackbarResult.ActionPerformed) {
+                                prefs.edit().putBoolean(seenKey, true).apply()
+                            }
+                        }
+                    }
+                } else {
+                    Log.d("InAppNotification", "Notification is not visible: ${notif.message}")
+                }
+            } else {
+                Log.d("InAppNotification", "Notification is null")
+            }
+        }
+    }
+}
 
 
-data class Blueprint(
-    val name: String = "",
-    val link: String = "",
-    val image_url: String = "",
-    val author: String = "",
-    val key: String = ""
-) : Serializable
+fun fetchInAppNotification(onNotification: (InAppNotification?) -> Unit) {
+    val ref = Firebase.database.reference.child("notification").child("update").child("app")
+    ref.get().addOnSuccessListener {
+        val notif = it.getValue(InAppNotification::class.java)
+        onNotification(notif)
+    }.addOnFailureListener {
+        onNotification(null)
+    }
+}
+
+fun loadUserLibrary(context: Context): Result<Map<String, LibraryEntry>> {
+    return try {
+        val file = File(context.getExternalFilesDir(null), "library/blueprint/library.json")
+        Log.d("loadUserLibrary", "Looking for file at: ${file.absolutePath}")
+
+        if (file.exists()) {
+            val gson = Gson()
+            val type = object : TypeToken<Map<String, LibraryEntry>>() {}.type
+            val json = file.readText()
+
+            Log.d("loadUserLibrary", "File found. Raw JSON: $json")
+
+            val data = gson.fromJson<Map<String, LibraryEntry>>(json, type)
+
+            if (data == null) {
+                Log.w("loadUserLibrary", "Parsed data is null, returning empty map.")
+                Result.success(emptyMap())
+            } else {
+                Log.d("loadUserLibrary", "Parsed ${data.size} entries from library.")
+                Result.success(data)
+            }
+        } else {
+            Log.e("loadUserLibrary", "File not found.")
+            Result.failure(FileNotFoundException("Library file not found."))
+        }
+    } catch (e: Exception) {
+        Log.e("loadUserLibrary", "Exception occurred: ${e.message}", e)
+        Result.failure(e)
+    }
+}
+
+@Composable
+fun LibraryEntryItem(
+    entry: LibraryEntry,
+    isSelected: Boolean,
+    onSelectedChanged: () -> Unit
+) {
+    var showDialog by remember { mutableStateOf(false) }
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp)
+            .clickable { onSelectedChanged() },
+        elevation = CardDefaults.cardElevation(4.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(entry.name, style = MaterialTheme.typography.titleLarge)
+            Text("Saved at: ${formatTimestamp(entry.timestamp)}", style = MaterialTheme.typography.bodySmall)
+
+            Column(modifier = Modifier.animateContentSize()) {
+                if (isSelected) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(onClick = {}) {
+                            Text("Edit")
+                        }
+                        val color = colorScheme.background.toArgb()
+                        val context = LocalContext.current
+                        Button(onClick = {
+                            Toast.makeText(context, "Downloading...", Toast.LENGTH_SHORT).show()
+                            var key = entry.postKey
+                            val dataRef = FirebaseDatabase.getInstance().reference
+                                .child("upload")
+                                .child("blueprint")
+                                .child(key)
+                                .child("file_link")
+
+                            dataRef.get().addOnSuccessListener { snapshot ->
+
+                                val link = snapshot.getValue(String::class.java)
+                                retreiveFile(context, link.toString(), color)
+
+                            }.addOnFailureListener {
+                                showDialog = true
+                            }
+                        }) {
+                            Text("Download")
+                        }
+                        SimpleAlertDialog(
+                            title = "No Blueprint Found",
+                            text = "The original blueprint could not be found. It may have been deleted, moved or relocated.",
+                            confirmText = "OK",
+                            showDialog = showDialog,
+                            onDismiss = { showDialog = false },
+                            onConfirm = {
+                                showDialog = false
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun LibraryList(library: List<LibraryEntry>) {
+    var selectedIndex by remember { mutableStateOf<Int?>(null) }
+
+    LazyColumn {
+        itemsIndexed(library) { index, entry ->
+            LibraryEntryItem(
+                entry = entry,
+                isSelected = selectedIndex == index,
+                onSelectedChanged = {
+                    selectedIndex = if (selectedIndex == index) null else index
+                }
+            )
+        }
+    }
+}
+
+fun retreiveFile(context: Context, url: String, color: Int) {
+    val customTabsIntent = CustomTabsIntent.Builder()
+        .setShowTitle(true)
+        .setToolbarColor(color)  // Directly use the ARGB color value
+        .build()
+    customTabsIntent.launchUrl(context, url.toUri())
+}
+
+fun formatTimestamp(timestamp: Long): String {
+    val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
+    return sdf.format(Date(timestamp))
+}
+
+@Composable
+fun SimpleAlertDialog(
+    title: String? = "Confirm Action",
+    text: String? = "The developer did not put any description.",
+    confirmText: String? = "Yes",
+    showDialog: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text(title.toString()) },
+            text = { Text(text.toString()) },
+            confirmButton = {
+                TextButton(onClick = onConfirm) {
+                    Text(confirmText.toString())
+                }
+            }
+        )
+    }
+}

@@ -1,52 +1,53 @@
+@file:Suppress("DEPRECATION")
+
 package com.sflightx.app
 
+import android.annotation.SuppressLint
 import android.app.*
+import android.content.*
 import android.os.*
-import android.util.Log
-import android.widget.Toast
 import androidx.activity.*
 import androidx.activity.compose.*
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.animateContentSize
+import androidx.browser.customtabs.*
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.shape.*
-import androidx.compose.material.icons.*
-import androidx.compose.material.icons.automirrored.filled.*
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.*
+import androidx.compose.ui.graphics.*
 import androidx.compose.ui.input.nestedscroll.*
 import androidx.compose.ui.layout.*
 import androidx.compose.ui.platform.*
+import androidx.compose.ui.res.*
+import androidx.compose.ui.text.font.*
 import androidx.compose.ui.text.style.*
 import androidx.compose.ui.unit.*
+import androidx.core.content.*
+import androidx.core.net.*
 import coil.compose.*
+import com.google.android.gms.tasks.*
+import com.google.firebase.database.*
+import com.google.firebase.auth.*
 import com.sflightx.app.ui.theme.*
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
-import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
-import coil.compose.rememberAsyncImagePainter
-import com.google.android.gms.tasks.Task
-import com.google.firebase.database.DataSnapshot
-import com.google.firebase.database.DatabaseError
-import com.google.firebase.database.FirebaseDatabase
-import com.google.firebase.database.ValueEventListener
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.*
+import androidx.core.net.toUri
+import com.google.firebase.database.ktx.database
+import com.google.firebase.ktx.Firebase
+import android.util.Log
+import android.widget.Toast
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.Modifier
+import coil.util.CoilUtils.result
+import java.io.File
+import java.io.IOException
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+
 
 @Suppress("DEPRECATION")
 class ViewPostActivity : ComponentActivity() {
@@ -72,7 +73,6 @@ fun ViewPostLayout(key: String, data: Blueprint?) {
     val snackbarHostState = remember { SnackbarHostState() }
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
-    // Derived state: is top bar not fully expanded?
     val showBottomBar by remember {
         derivedStateOf { scrollBehavior.state.collapsedFraction > 0f }
     }
@@ -92,14 +92,17 @@ fun ViewPostLayout(key: String, data: Blueprint?) {
                 navigationIcon = {
                     IconButton(onClick = { activity?.finish() }) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            painter = painterResource(id = R.drawable.arrow_back_24px),
                             contentDescription = "Back"
                         )
                     }
                 },
                 actions = {
-                    IconButton(onClick = { /* TODO */ }) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "More")
+                    IconButton(onClick = {
+                        val url = "https://sflightx.com/bp/$key"
+                        shareBlueprint(context, url)
+                    }) {
+                        Icon(painter = painterResource(id = R.drawable.share_24px), contentDescription = "Share")
                     }
                 },
                 scrollBehavior = scrollBehavior,
@@ -112,14 +115,16 @@ fun ViewPostLayout(key: String, data: Blueprint?) {
         bottomBar = {
             if (showBottomBar) {
                 BottomAppBar {
-                    Button(
-                        onClick = { /* TODO */ },
+                    OpenLinkButton(
+                        key = data?.file_link ?: "null",
+                        postKey = data?.key ?: "null",
+                        name = data?.name ?: "null",
+                        onClick = {},
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                    ) {
-                        Text("Download")
-                    }
+                            .padding(horizontal = 16.dp),
+                        snackbarHostState = snackbarHostState
+                    )
                 }
             }
         }
@@ -137,15 +142,18 @@ fun ViewPostLayout(key: String, data: Blueprint?) {
     }
 }
 
+@SuppressLint("AutoboxingStateCreation")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DetailsLayout(blueprint: Blueprint?, scrollBehavior: TopAppBarScrollBehavior, snackbarHostState: SnackbarHostState) {
     val painter = rememberAsyncImagePainter(blueprint?.image_url)
     val collapsedFraction = scrollBehavior.state.collapsedFraction
+    var imageHeight by remember { mutableIntStateOf(250) }
     // Animate alpha based on scroll
 
     Column {
-        PosterInfo(blueprint, collapsedFraction)
+        PosterInfo(blueprint, collapsedFraction, snackbarHostState)
+        FileInfo(blueprint, collapsedFraction)
         RatingInfo(blueprint, collapsedFraction)
         Box(
             modifier = Modifier
@@ -153,17 +161,107 @@ fun DetailsLayout(blueprint: Blueprint?, scrollBehavior: TopAppBarScrollBehavior
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(16.dp))
                 .background(MaterialTheme.colorScheme.primaryContainer)
+                .animateContentSize()
         ) {
             Image(
                 painter = painter,
                 contentDescription = null,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(200.dp),
+                    .height(imageHeight.dp)
+                    .animateContentSize(),
                 contentScale = ContentScale.Crop
             )
+            Box(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                IconButton(onClick = {
+                    imageHeight = if (imageHeight == 250) { 750 } else { 250 }
+                }) {
+                    Icon(
+                        painter = painterResource(if (imageHeight == 250) R.drawable.info_24px else R.drawable.check_24px),
+                        contentDescription = "Open",
+                        modifier = Modifier.size(24.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
         }
         CommentInfo(blueprint, collapsedFraction, snackbarHostState)
+    }
+}
+
+@Composable
+fun FileInfo(blueprint: Blueprint?, collapsedFraction: Float) {
+    Box (
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 16.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+    ) {
+        Row (
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth(),
+        ) {
+            Column (
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.weight(1f)
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.download_24px),
+                    contentDescription = "Downloads",
+                    modifier = Modifier.size(24.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(blueprint?.downloads.toString())
+            }
+            VerticalDivider(modifier = Modifier.fillMaxHeight(1f), thickness = 1.dp)
+            Column (
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.weight(1f)
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.star_24px),
+                    contentDescription = "Downloads",
+                    modifier = Modifier.size(24.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text("%.1f".format(blueprint?.rating ?: 0.0))
+            }
+            VerticalDivider(modifier = Modifier.fillMaxHeight(1f), thickness = 1.dp)
+            Column (
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.weight(1f)
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.check_24px),
+                    contentDescription = "Type",
+                    modifier = Modifier.size(24.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(blueprint?.req_type.toString())
+            }
+            VerticalDivider(modifier = Modifier.fillMaxHeight(1f), thickness = 1.dp)
+            Column (
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.weight(1f)
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.info_24px),
+                    contentDescription = "Game",
+                    modifier = Modifier.size(24.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(blueprint?.req_game.toString())
+            }
+        }
     }
 }
 
@@ -202,6 +300,7 @@ fun CommentInfo(blueprint: Blueprint?, collapsedFraction: Float, snackbarHostSta
     val postId = blueprint?.key
     var isLoaded by remember { mutableStateOf(false) }
     var text by remember { mutableStateOf("") }
+    var user = FirebaseAuth.getInstance().currentUser
 
     LaunchedEffect(postId) {
         fetchCommentsForPost(
@@ -224,7 +323,6 @@ fun CommentInfo(blueprint: Blueprint?, collapsedFraction: Float, snackbarHostSta
             .fillMaxWidth()
             .padding(bottom = 16.dp)
             .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainer)
     ) {
         Column (
             modifier = Modifier
@@ -268,9 +366,8 @@ fun CommentInfo(blueprint: Blueprint?, collapsedFraction: Float, snackbarHostSta
                             painter = rememberAsyncImagePainter(comment.profilePictureUrl), // Load the profile picture
                             contentDescription = "Profile Picture",
                             modifier = Modifier
-                                .size(32.dp) // Adjust size of profile picture
+                                .size(24.dp) // Adjust size of profile picture
                                 .clip(CircleShape) // Make it circular
-                                .border(1.dp, MaterialTheme.colorScheme.onSurfaceVariant, CircleShape)
                         )
 
                         Spacer(modifier = Modifier.width(8.dp)) // Spacing between the image and the text
@@ -297,7 +394,9 @@ fun CommentInfo(blueprint: Blueprint?, collapsedFraction: Float, snackbarHostSta
                 text = text,
                 onTextChange = { newText -> text = newText },
                 onSendClick = { message ->
-                    // Handle sending the message (e.g., save to database, etc.)
+                    if (user == null) {
+                        context.startActivity(Intent(context, LoginActivity::class.java))
+                    }
                     println("Message sent: $message")
                     text = "" // Optionally clear the input after sending
                 }
@@ -307,7 +406,7 @@ fun CommentInfo(blueprint: Blueprint?, collapsedFraction: Float, snackbarHostSta
 }
 
 @Composable
-fun PosterInfo(blueprint: Blueprint?, collapsedFraction: Float) {
+fun PosterInfo(blueprint: Blueprint?, collapsedFraction: Float, snackbarHostState: SnackbarHostState) {
 
     var user by remember { mutableStateOf<User?>(null) }
     val showButton = collapsedFraction < 1f
@@ -356,48 +455,61 @@ fun PosterInfo(blueprint: Blueprint?, collapsedFraction: Float) {
                 )
             } else {
                 Icon(
-                    imageVector = Icons.Default.AccountCircle,
+                    painter = painterResource(id = R.drawable.account_circle_24px),
                     contentDescription = "Account",
                     modifier = Modifier.size(64.dp),
                     tint = MaterialTheme.colorScheme.onSurface
                 )
             }
+            Spacer(modifier = Modifier.width(24.dp))
+            Text(
+                text = user?.username ?: "Unknown User",
+                style = MaterialTheme.typography.titleLarge
+            )
+        }
 
-            Spacer(modifier = Modifier.width(16.dp))
-
-            Column(
-                modifier = Modifier
-                    .fillMaxHeight() // Ensure the Column takes up the full height
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 8.dp),
+        ) {
+            OutlinedButton(
+                onClick = {}
             ) {
-
-                Text(
-                    text = user?.username ?: "Unknown User",
-                    style = MaterialTheme.typography.titleMedium
-                )
-
-                Spacer(modifier = Modifier.width(16.dp))
-
-                OutlinedButton(
-                    modifier = Modifier
-                        .fillMaxWidth(),
-                    onClick = {}
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = "Follow",
-                            modifier = Modifier.size(24.dp)
-                        )
+                    Icon(
+                        painter = painterResource(id = R.drawable.add_24px),
+                        contentDescription = "Follow",
+                        modifier = Modifier.size(24.dp)
+                    )
 
-                        Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
 
-                        Text("Follow", style = MaterialTheme.typography.bodySmall)
-                    }
+                    Text("Follow", style = MaterialTheme.typography.bodyMedium)
                 }
             }
+            Spacer(modifier = Modifier.width(16.dp))
+            Button(
+                modifier = Modifier.weight(1f),
+                onClick = {}
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.account_circle_24px),
+                        contentDescription = "View Profile",
+                        modifier = Modifier.size(24.dp)
+                    )
 
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Text("View Profile", style = MaterialTheme.typography.bodyMedium)
+                }
+            }
         }
 
         AnimatedContent(
@@ -408,14 +520,16 @@ fun PosterInfo(blueprint: Blueprint?, collapsedFraction: Float) {
             label = "DownloadButtonAnimation"
         ) { visible ->
             if (visible) {
-                Button(
-                    onClick = { /* TODO */ },
+                OpenLinkButton(
+                    key = blueprint?.file_link ?: "null",
+                    postKey = blueprint?.key ?: "null",
+                    name = blueprint?.name ?: "null",
+                    snackbarHostState = snackbarHostState,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                ) {
-                    Text("Download")
-                }
+                        .padding(horizontal = 16.dp)
+                        .padding(bottom = 8.dp),
+                )
             } else {
                 Spacer(modifier = Modifier.height(0.dp)) // Keeps animation smooth
             }
@@ -590,7 +704,7 @@ fun CommentInputWithSend(
         // Send button
         IconButton(onClick = { onSendClick(text) }) {
             Icon(
-                imageVector = Icons.Default.Send,  // Using Material Icon for Send
+                painter = painterResource(id = R.drawable.send_24px),  // Using Material Icon for Send
                 contentDescription = "Send Message",
                 tint = MaterialTheme.colorScheme.primary
             )
@@ -598,19 +712,118 @@ fun CommentInputWithSend(
     }
 }
 
+@Composable
+fun OpenLinkButton(
+    key: String,
+    postKey: String,
+    name: String,
+    modifier: Modifier = Modifier,
+    label: String = "Download",
+    onClick: (() -> Unit)? = null,
+    snackbarHostState: SnackbarHostState
+) {
+    val context = LocalContext.current
+    val color = MaterialTheme.colorScheme.background.toArgb()
+    val coroutineScope = rememberCoroutineScope()
+    val url = key
 
-data class User(
-    val profile: String? = null,
-    val username: String? = null,
-    val email: String? = null,
-    val uid: String? = null
-)
+    Button(
+        onClick = {
+            onClick?.invoke()
+            incrementDownloadCount(postKey)
 
-data class Comment(
-    val author: String = "",
-    var username: String = "",
-    val message: String = "",
-    val timestamp: Long = 0L,
-    var profilePictureUrl: String? = null
-)
+            saveToUserLibrary(context, postKey, name) { success, message ->
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar(message)
+                }
+            }
 
+            openCustomTab(context, url, color)
+        },
+        modifier = modifier
+    ) {
+        Icon(
+            painter = painterResource(id = R.drawable.download_24px),
+            contentDescription = "Follow",
+            modifier = Modifier.size(24.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(label, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+
+fun incrementDownloadCount(postKey: String) {
+    val database = Firebase.database.reference
+    val blueprintRef = database.child("upload").child("blueprint").child(postKey)
+
+    // Access the current download count
+    blueprintRef.child("downloads").get().addOnSuccessListener { snapshot ->
+        val currentDownloads = snapshot.getValue(Long::class.java) ?: 0
+        val newDownloads = currentDownloads + 1
+
+        // Update the download count in the database
+        blueprintRef.child("downloads").setValue(newDownloads)
+            .addOnSuccessListener {
+                Log.d("Download", "Download count updated successfully")
+            }
+            .addOnFailureListener { exception ->
+                Log.e("Download", "Failed to update download count", exception)
+            }
+    }
+}
+
+fun openCustomTab(context: Context, url: String, color: Int) {
+    val customTabsIntent = CustomTabsIntent.Builder()
+        .setShowTitle(true)
+        .setToolbarColor(color)  // Directly use the ARGB color value
+        .build()
+    customTabsIntent.launchUrl(context, url.toUri())
+}
+
+fun shareBlueprint(context: Context, url: String) {
+    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(Intent.EXTRA_SUBJECT, "Check out this rocket!")
+        putExtra(Intent.EXTRA_TEXT, url)
+    }
+
+    context.startActivity(Intent.createChooser(shareIntent, "Share blueprint via"))
+}
+
+fun saveToUserLibrary(
+    context: Context,
+    postKey: String,
+    name: String,
+    onResult: (success: Boolean, message: String) -> Unit = { _, _ -> }
+) {
+    val gson = Gson()
+    val entry = LibraryEntry(postKey, name)
+
+    val dir = File(context.getExternalFilesDir(null), "library/blueprint")
+    if (!dir.exists()) dir.mkdirs()
+    val file = File(dir, "library.json")
+
+    val type = object : TypeToken<MutableMap<String, LibraryEntry>>() {}.type
+    val currentData: MutableMap<String, LibraryEntry> = if (file.exists()) {
+        try {
+            gson.fromJson(file.readText(), type) ?: mutableMapOf()
+        } catch (e: Exception) {
+            onResult(false, "Error reading library: ${e.message}")
+            return
+        }
+    } else {
+        mutableMapOf()
+    }
+
+    currentData[postKey] = entry
+
+    try {
+        file.writeText(gson.toJson(currentData))
+        Log.d("Library", "Saved $postKey to library.json")
+        onResult(true, "Saved to library, opening app...")
+    } catch (e: IOException) {
+        Log.e("Library", "Failed to write library.json", e)
+        onResult(false, "Error saving to library: ${e.message}")
+    }
+}

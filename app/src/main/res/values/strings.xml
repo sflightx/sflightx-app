@@ -4,8 +4,10 @@
     <string name="title_activity_settings">Settings</string>
 
     <string name="title_activity_preload">sFlightX</string>
-    <string name="title_activity_login">LoginActivity</string>
+    <string name="title_activity_login">Login to App</string>
     <string name="gcp_id">219145189221-vkh9acbj3obhb0i1k3247e1lvdgvbsqd.apps.googleusercontent.com</string>
-    <string name="title_activity_upload">UploadActivity</string>
-    <string name="title_activity_view_post">ViewPostActivity</string>
+    <string name="title_activity_upload">Upload to App</string>
+    <string name="title_activity_view_post">View Post</string>
+    <string name="title_activity_error">ErrorActivity</string>
+    <string name="title_activity_my_application">MyApplication</string>
 </resources>

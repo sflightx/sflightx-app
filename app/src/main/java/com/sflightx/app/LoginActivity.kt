@@ -9,12 +9,11 @@ import androidx.activity.compose.*
 import androidx.activity.result.contract.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.*
-import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.platform.*
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.*
 import androidx.core.net.*
 import com.google.android.gms.auth.api.signin.*
@@ -70,8 +69,9 @@ fun LoginLayout() {
                 actions = {
                     IconButton(onClick = { showDialog = true }) {
                         Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
+                            painter = painterResource(id = R.drawable.arrow_back_24px),
+                            contentDescription = "Back",
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }
@@ -87,7 +87,7 @@ fun LoginLayout() {
         ) {
             Column(modifier = Modifier.padding(8.dp)) {
                 Text(
-                    text = "Welcome!",
+                    text = "Hello!",
                     style = MaterialTheme.typography.titleLarge,
                     fontSize = (MaterialTheme.typography.titleLarge.fontSize.value * 3f).sp,
                     modifier = Modifier.padding(bottom = 8.dp)

@@ -12,15 +12,13 @@ import androidx.activity.compose.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.*
-import androidx.compose.material.icons.*
-import androidx.compose.material.icons.automirrored.filled.*
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.draw.*
 import androidx.compose.ui.input.nestedscroll.*
 import androidx.compose.ui.platform.*
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.*
 import androidx.core.net.toUri
 import coil.compose.*
@@ -94,6 +92,7 @@ fun UploadLayout(sharedLink: String?, sharedImageUri: Uri?) {
 
     var fileNameError by remember { mutableStateOf<String?>(null) }
     var descriptionError by remember { mutableStateOf<String?>(null) }
+    var authError by remember { mutableStateOf<String?>(null) }
     var linkError by remember { mutableStateOf<String?>(null) }
     var gameSelectionError by remember { mutableStateOf<String?>(null) }
     var typeSelectionError by remember { mutableStateOf<String?>(null) }
@@ -104,11 +103,21 @@ fun UploadLayout(sharedLink: String?, sharedImageUri: Uri?) {
     var showErrors by remember { mutableStateOf(false) }
     var showDialog by remember { mutableStateOf(false) }
 
+    if (FirebaseAuth.getInstance().currentUser == null) {
+        authError = "You must be logged in to proceed."
+        scope.launch {
+            snackbarHostState.showSnackbar(authError!!)
+        }
+    }
+
     fun validateStep(): Boolean {
         var valid = true
 
         when (currentStep) {
             1 -> {
+                if (FirebaseAuth.getInstance().currentUser == null) {
+                    valid = false
+                }
                 if (fileName.isEmpty()) {
                     fileNameError = "File name is required"
                     valid = false
@@ -177,7 +186,7 @@ fun UploadLayout(sharedLink: String?, sharedImageUri: Uri?) {
                         activity?.finish() // Close activity
                     }) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            painter = painterResource(id = R.drawable.arrow_back_24px),
                             contentDescription = "Back"
                         )
                     }
@@ -211,7 +220,7 @@ fun UploadLayout(sharedLink: String?, sharedImageUri: Uri?) {
                             modifier = Modifier.padding(8.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                painter = painterResource(id = R.drawable.arrow_back_24px),
                                 contentDescription = "Previous"
                             )
                         }
@@ -237,7 +246,7 @@ fun UploadLayout(sharedLink: String?, sharedImageUri: Uri?) {
                             modifier = Modifier.padding(8.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                painter = painterResource(id = R.drawable.arrow_forward_24px),
                                 contentDescription = "Next"
                             )
                         }
@@ -596,7 +605,7 @@ fun GameSelectionStep(
                     leadingIcon = if (selectedGameState) {
                         {
                             Icon(
-                                imageVector = Icons.Filled.Done,
+                                painter = painterResource(id = R.drawable.check_24px),
                                 contentDescription = "Done icon",
                                 modifier = Modifier.size(FilterChipDefaults.IconSize)
                             )
@@ -644,7 +653,7 @@ fun TypeSelectionStep(
                     leadingIcon = if (selectedTypeState) {
                         {
                             Icon(
-                                imageVector = Icons.Filled.Done,
+                                painter = painterResource(id = R.drawable.check_24px),
                                 contentDescription = "Done icon",
                                 modifier = Modifier.size(FilterChipDefaults.IconSize)
                             )
@@ -701,6 +710,7 @@ fun handleSubmission(context: Context, blueprintData: Map<String, Any>) {
                 databaseRef.child("upload/blueprint/$postKey").setValue(blueprintDataWithImage)
                     .addOnSuccessListener {
                         Toast.makeText(context, "Uploaded Successfully!", Toast.LENGTH_SHORT).show()
+                        addToProfile(postKey, userId)
                         activity?.finish()
                     }
                     .addOnFailureListener { exception ->
@@ -713,6 +723,27 @@ fun handleSubmission(context: Context, blueprintData: Map<String, Any>) {
         )
     } else {
         Log.e("Blueprint Upload", "Missing required data.")
+    }
+}
+
+@SuppressLint("ContextCastToActivity")
+fun addToProfile(postKey: String, uid: String) {
+    val profileRef = FirebaseDatabase.getInstance().reference
+        .child("userdata")
+        .child(uid)
+        .child("upload")
+
+    profileRef.get().addOnSuccessListener { snapshot ->
+        val currentList = snapshot.getValue(object : GenericTypeIndicator<List<String>>() {})
+
+        val updatedList = if (currentList != null) {
+            currentList + postKey
+        } else {
+            listOf(postKey)
+        }
+        profileRef.setValue(updatedList)
+    }.addOnFailureListener {
+        Log.e("Firebase", "Failed to fetch uploads", it)
     }
 }
 
@@ -746,7 +777,6 @@ fun ConfirmationDialog(context: Context, blueprintData: Map<String, Any>, onDism
         confirmButton = {
             TextButton(onClick = {
                 handleSubmission(context, blueprintData)
-                onDismiss()
             }) {
                 Text("Yes")
             }

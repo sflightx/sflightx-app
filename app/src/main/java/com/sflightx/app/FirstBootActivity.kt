@@ -11,19 +11,19 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.*
-import androidx.compose.material.icons.automirrored.filled.*
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.platform.*
+import androidx.compose.ui.res.*
 import androidx.compose.ui.text.font.*
 import androidx.compose.ui.unit.*
 import androidx.core.app.*
 import androidx.core.content.*
+import com.google.accompanist.flowlayout.*
 import com.sflightx.app.ui.theme.*
 
+@Suppress("DEPRECATION")
 class FirstBootActivity : ComponentActivity() {
     private val STORAGE_PERMISSION_CODE = 101
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -80,8 +80,9 @@ fun FirstBootAppLayout(requestStoragePermission: () -> Unit) {
                     },
                         Modifier.padding(8.dp)) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back Arrow"
+                            painter = painterResource(id = R.drawable.arrow_back_24px),
+                            contentDescription = "Back",
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
 
                     }
@@ -107,7 +108,7 @@ fun FirstBootAppLayout(requestStoragePermission: () -> Unit) {
                     },
                         Modifier.padding(8.dp)) {
                         Icon(
-                            imageVector = if (selectedTab == 2) Icons.Default.Check else Icons.AutoMirrored.Filled.ArrowForward,
+                            painter = painterResource(id = if (selectedTab == 2) R.drawable.check_24px else R.drawable.arrow_forward_24px),
                             contentDescription = if (selectedTab == 2) "Finish Icon" else "Next Icon"
                         )
 
@@ -200,8 +201,10 @@ fun TabContent2(requestStoragePermission: () -> Unit) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun TabContent3() {
+    val context = LocalContext.current
     Box (
         modifier = Modifier.fillMaxSize()
     ){
@@ -238,7 +241,9 @@ fun TabContent3() {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
-                    FilledTonalButton(onClick = {}) {
+                    FilledTonalButton(onClick = {
+                        Toast.makeText(context, "App hasn't booted before", Toast.LENGTH_SHORT).show()
+                    }) {
                         Text("Set Theme")
                     }
                 }
@@ -269,44 +274,14 @@ fun TabContent3() {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
-                    Row (
-                        modifier = Modifier.horizontalScroll(rememberScrollState())
+                    FlowRow(
+                        mainAxisSpacing = 8.dp,
+                        crossAxisSpacing = 8.dp,
+                        modifier = Modifier.padding(16.dp)
                     ) {
-                        AssistChip(
-                            onClick = {},
-                            label = { Text("Juno: New Origins") },
-                            leadingIcon = {
-                                Icon(
-                                    Icons.Filled.Settings,
-                                    contentDescription = "JNO Icon",
-                                    Modifier.size(AssistChipDefaults.IconSize)
-                                )
-                            }
-                        )
-                        AssistChip(
-                            onClick = {},
-                            label = { Text("Spaceflight Simulator") },
-                            leadingIcon = {
-                                Icon(
-                                    Icons.Filled.Settings,
-                                    contentDescription = "JNO Icon",
-                                    Modifier.size(AssistChipDefaults.IconSize)
-                                )
-                            },
-                            modifier = Modifier.padding(start = 8.dp)
-                        )
-                        AssistChip(
-                            onClick = {},
-                            label = { Text("Kerbal Space Program") },
-                            leadingIcon = {
-                                Icon(
-                                    Icons.Filled.Settings,
-                                    contentDescription = "JNO Icon",
-                                    Modifier.size(AssistChipDefaults.IconSize)
-                                )
-                            },
-                            modifier = Modifier.padding(start = 8.dp)
-                        )
+                        AssistChip(onClick = {}, label = { Text("Juno: New Origins") })
+                        AssistChip(onClick = {}, label = { Text("Spaceflight Simulator") })
+                        AssistChip(onClick = {}, label = { Text("Kerbal Space Program") })
                     }
                 }
             }

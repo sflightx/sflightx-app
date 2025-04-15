@@ -15,27 +15,42 @@ android {
         minSdk = 23
         targetSdk = 35
         versionCode = 1
-        versionName = "1.0"
+        versionName = "0.01"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file(findProperty("RELEASE_STORE_FILE") as? String ?: "")
+            storePassword = findProperty("RELEASE_STORE_PASSWORD") as? String ?: ""
+            keyAlias = findProperty("RELEASE_KEY_ALIAS") as? String ?: ""
+            keyPassword = findProperty("RELEASE_KEY_PASSWORD") as? String ?: ""
+        }
+    }
+
+
+
     buildTypes {
-        release {
+        getByName("release") {
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("release")  // Referencing the release signing config
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+
     kotlinOptions {
         jvmTarget = "11"
     }
+
     buildFeatures {
         compose = true
         viewBinding = true
@@ -43,7 +58,6 @@ android {
 }
 
 dependencies {
-
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -55,22 +69,25 @@ dependencies {
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
     implementation(libs.androidx.preference)
-    implementation (libs.ui)
+    implementation(libs.ui)
     implementation(libs.androidx.foundation)
-    implementation (libs.google.accompanist.systemuicontroller)
+    implementation(libs.google.accompanist.systemuicontroller)
     implementation(libs.coil.compose)
-    implementation (libs.androidx.material.icons.extended.android)
+    implementation(libs.google.accompanist.flowlayout)
+    implementation(libs.androidx.browser)
+    implementation(libs.gson)
 
     implementation(project(":ImageCrop"))
     implementation(project(":EnhancedFirebase"))
 
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.analytics)
-    implementation (libs.firebase.ui.auth)
+    implementation(libs.firebase.ui.auth)
     implementation(libs.firebase.crashlytics)
-    implementation (libs.play.services.auth)
-    implementation (libs.google.firebase.database.ktx)
-    implementation (libs.firebase.storage.ktx)
+    implementation(libs.play.services.auth)
+    implementation(libs.google.firebase.database.ktx)
+    implementation(libs.firebase.storage.ktx)
+    implementation(libs.androidx.runtime.android)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
