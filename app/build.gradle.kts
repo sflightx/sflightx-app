@@ -13,38 +13,31 @@ android {
     defaultConfig {
         applicationId = "com.sflightx.app"
         minSdk = 23
-        targetSdk = 35
+        //noinspection OldTargetApi
+        targetSdk = 34
+        multiDexEnabled = true
         versionCode = 1
         versionName = "0.01"
-
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     signingConfigs {
         create("release") {
-            storeFile = file(findProperty("RELEASE_STORE_FILE") as? String ?: "")
-            storePassword = findProperty("RELEASE_STORE_PASSWORD") as? String ?: ""
-            keyAlias = findProperty("RELEASE_KEY_ALIAS") as? String ?: ""
-            keyPassword = findProperty("RELEASE_KEY_PASSWORD") as? String ?: ""
+            storeFile = file(project.property("MYAPP_RELEASE_STORE_FILE") as String)
+            storePassword = project.property("MYAPP_RELEASE_STORE_PASSWORD") as String
+            keyAlias = project.property("MYAPP_RELEASE_KEY_ALIAS") as String
+            keyPassword = project.property("MYAPP_RELEASE_KEY_PASSWORD") as String
         }
     }
 
-
-
     buildTypes {
         getByName("release") {
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("release")  // Referencing the release signing config
         }
-    }
-
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
     }
 
     kotlinOptions {
