@@ -4,9 +4,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.painter.*
 import java.io.*
 
-class AppDataClass {
-
-}
+class AppDataClass
 
 data class LibraryEntry(
     val postKey: String,

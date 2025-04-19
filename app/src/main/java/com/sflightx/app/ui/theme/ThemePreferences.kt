@@ -9,7 +9,7 @@ class ThemePreferences(context: Context) {
 
     // Function to save the 'Material You' theme preference
     fun saveMaterialYouEnabled(enabled: Boolean) {
-        sharedPreferences.edit() { putBoolean("material_you_enabled", enabled) }
+        sharedPreferences.edit { putBoolean("material_you_enabled", enabled) }
     }
 
     // Function to get the 'Material You' theme preference

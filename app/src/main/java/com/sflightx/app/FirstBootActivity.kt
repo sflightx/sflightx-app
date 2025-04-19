@@ -9,9 +9,8 @@ import android.widget.*
 import androidx.activity.*
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.*
-import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.*
+import androidx.compose.foundation.lazy.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
@@ -205,35 +204,37 @@ fun TabContent2(requestStoragePermission: () -> Unit) {
 @Composable
 fun TabContent3() {
     val context = LocalContext.current
-    Box (
-        modifier = Modifier.fillMaxSize()
-    ){
-        Column (
-            modifier = Modifier.padding(8.dp).verticalScroll(rememberScrollState())
-        ) {
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(8.dp)
+    ) {
+        item {
             Text(
                 "New Features",
                 style = MaterialTheme.typography.titleLarge,
                 fontSize = (MaterialTheme.typography.titleLarge.fontSize.value * 1.5f).sp,
                 modifier = Modifier.padding(bottom = 24.dp)
             )
-            Card (
+        }
+
+        item {
+            Card(
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                 ),
-                modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
-
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 24.dp)
             ) {
-                Column (
-                    modifier = Modifier.padding(16.dp)
-                ) {
+                Column(modifier = Modifier.padding(24.dp)) {
                     Text(
                         "Material Theming",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.padding(bottom = 8.dp)
-
                     )
                     Text(
                         "The app follows Google's Material You Theme, where you can also customize according to the system color scheme.",
@@ -248,13 +249,18 @@ fun TabContent3() {
                     }
                 }
             }
+        }
+
+        item {
             Card(
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                 ),
-                modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 24.dp)
             ) {
-                Column (modifier = Modifier.padding(16.dp)) {
+                Column(modifier = Modifier.padding(24.dp)) {
                     Text(
                         "Content Creation Integration",
                         style = MaterialTheme.typography.titleLarge,
@@ -274,17 +280,15 @@ fun TabContent3() {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
-                    LazyVerticalGrid(
-                        columns = GridCells.Adaptive(minSize = 120.dp),
-                        modifier = Modifier.padding(16.dp)
+
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        items(3) { index ->
-                            when (index) {
-                                0 -> AssistChip(onClick = {}, label = { Text("Juno: New Origins") })
-                                1 -> AssistChip(onClick = {}, label = { Text("Spaceflight Simulator") })
-                                2 -> AssistChip(onClick = {}, label = { Text("Kerbal Space Program") })
-                            }
-                        }
+                        AssistChip(onClick = {}, label = { Text("Juno: New Origins") })
+                        AssistChip(onClick = {}, label = { Text("Spaceflight Simulator") })
+                        AssistChip(onClick = {}, label = { Text("Kerbal Space Program") })
                     }
                 }
             }

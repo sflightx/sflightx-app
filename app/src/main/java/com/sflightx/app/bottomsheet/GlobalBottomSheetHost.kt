@@ -11,7 +11,7 @@ fun GlobalBottomSheetHost(
     content: @Composable () -> Unit
 ) {
     val bottomSheetController = remember { BottomSheetController() }
-    val scope = rememberCoroutineScope()
+    rememberCoroutineScope()
 
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true,
