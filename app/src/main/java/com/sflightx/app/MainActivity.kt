@@ -13,12 +13,10 @@ import android.graphics.*
 import android.net.*
 import android.os.*
 import android.provider.*
-import android.util.*
 import android.widget.*
 import androidx.activity.*
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.*
-import androidx.activity.result.*
 import androidx.activity.result.contract.*
 import androidx.browser.customtabs.*
 import androidx.compose.animation.*
@@ -64,10 +62,9 @@ import java.util.*
 @Suppress("DEPRECATION")
 class MainActivity : ComponentActivity() {
 
-    private val STORAGE_PERMISSION_CODE = 101
-    private val PREFS_NAME = "sflightx.settings"
-    private val KEY_FIRST_BOOT = "first_boot"
-    private lateinit var cropImageLauncher: ActivityResultLauncher<Intent>
+    private val storagePermissionCode = 101
+    private val prefsName = "sflightx.settings"
+    private val keyFirstBoot = "first_boot"
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -78,13 +75,7 @@ class MainActivity : ComponentActivity() {
             SFlightXTheme {
                 GlobalBottomSheetHost {
                     MainAppLayout(
-                        STORAGE_PERMISSION_CODE,
-                        onOpenCropActivity = { imageUri ->
-                            val intent = Intent(this, CropActivity::class.java).apply {
-                                putExtra("imageUri", imageUri)
-                            }
-                            cropImageLauncher.launch(intent)
-                        }
+                        storagePermissionCode
                     )
                 }
 
@@ -107,7 +98,7 @@ class MainActivity : ComponentActivity() {
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == STORAGE_PERMISSION_CODE) {
+        if (requestCode == storagePermissionCode) {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 // Permission granted, you can proceed
             } else {
@@ -117,9 +108,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun isFirstBoot(context: Context): Boolean {
-        val sharedPreferences = context.getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-        if (!sharedPreferences.contains(KEY_FIRST_BOOT)) return true
-        return sharedPreferences.getBoolean(KEY_FIRST_BOOT, true)
+        val sharedPreferences = context.getSharedPreferences(prefsName, MODE_PRIVATE)
+        if (!sharedPreferences.contains(keyFirstBoot)) return true
+        return sharedPreferences.getBoolean(keyFirstBoot, true)
     }
 
 }
@@ -127,8 +118,7 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainAppLayout(
-    storagePermissionCode: Int,
-    onOpenCropActivity: (Uri) -> Unit
+    storagePermissionCode: Int
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val bottomSheetController = LocalBottomSheetController.current
@@ -137,7 +127,7 @@ fun MainAppLayout(
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    val color = MaterialTheme.colorScheme.background.toArgb()
+    val color = colorScheme.background.toArgb()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var showBottomSheet by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
@@ -151,23 +141,22 @@ fun MainAppLayout(
                 if (croppedImageUri != null) {
                     val inputStream = context.contentResolver.openInputStream(croppedImageUri)
                     val croppedBitmap = BitmapFactory.decodeStream(inputStream)
-                    Log.d("ImageReceiver", "Cropped image received in MainAppLayout.")
 
-                    // Upload the cropped image to Firebase
                     uploadProfilePictureToFirebase(
                         bitmap = croppedBitmap,
                         onSuccess = { imageUrl ->
-                            Log.d("ImageReceiver", "Image uploaded successfully!")
-                            Toast.makeText(context, "Profile picture updated!", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Profile picture updated!", Toast.LENGTH_SHORT)
+                                .show()
                         },
                         onFailure = { exception ->
-                            Log.d("ImageReceiver", "Error uploading image: ${exception.message}")
-                            Toast.makeText(context, "Error: ${exception.message}", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(
+                                context,
+                                "Error: ${exception.message}",
+                                Toast.LENGTH_SHORT
+                            ).show()
                         }
                     )
                 }
-            } else {
-                Log.d("ImageReceiver", "No result received or action was canceled.")
             }
         }
     )
@@ -186,7 +175,9 @@ fun MainAppLayout(
     )
 
     bottomSheetController.show {
-        CheckUpdates()
+        CheckUpdates(
+            onDismiss = { bottomSheetController.hide() }
+        )
     }
 
     if (showLogoutDialog) {
@@ -367,7 +358,7 @@ fun MainAppLayout(
                     openCustomTab(context, url, color)
                 },
                 onCreateClick = {
-                    Toast.makeText(context, "Soon!", Toast.LENGTH_SHORT)
+                    Toast.makeText(context, "Soon!", Toast.LENGTH_SHORT).show()
                 }
             )
         },
@@ -404,7 +395,8 @@ fun HomeContent(context: Context, storagePermissionCode: Int) {
         blueprintRef.get().addOnSuccessListener { snapshot ->
             if (snapshot.exists()) {
                 // Assuming the data is structured as a map of items
-                val blueprintList = snapshot.children.mapNotNull { it.getValue(Blueprint::class.java) }
+                val blueprintList =
+                    snapshot.children.mapNotNull { it.getValue(Blueprint::class.java) }
                 blueprints = blueprintList.reversed()
             }
         }.addOnFailureListener {
@@ -459,7 +451,8 @@ fun HomeContent(context: Context, storagePermissionCode: Int) {
                         .clip(RoundedCornerShape(16.dp))
                 ) {
                     Column(
-                        modifier = Modifier.animateContentSize()
+                        modifier = Modifier
+                            .animateContentSize()
                             .background(colorScheme.surfaceContainerLow)
                             .clickable {
                                 val intent = Intent(context, ViewPostActivity::class.java)
@@ -580,10 +573,9 @@ fun HomeContent(context: Context, storagePermissionCode: Int) {
 @SuppressLint("CoroutineCreationDuringComposition")
 @Composable
 fun EditContent(context: Context, snackbarHostState: SnackbarHostState) {
-    val scope = rememberCoroutineScope()
     var library by remember { mutableStateOf<List<LibraryEntry>>(emptyList()) }
 
-    Column (
+    Column(
         modifier = Modifier
             .fillMaxWidth()
     ) {
@@ -595,30 +587,24 @@ fun EditContent(context: Context, snackbarHostState: SnackbarHostState) {
                 .padding(bottom = 8.dp)
         )
         Spacer(modifier = Modifier.height(16.dp))
-        Box (
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
         ) {
-            // Log and load the user library inside LaunchedEffect
             LaunchedEffect(Unit) {
-                Log.d("EditContent", "LaunchedEffect: Loading user library...")
                 val result = loadUserLibrary(context)
 
                 if (result.isSuccess) {
                     val data = result.getOrDefault(emptyMap())
-                    Log.d("EditContent", "Library loaded: ${data.size} items")
                     library = data.values.sortedByDescending { it.timestamp }
                 } else {
                     val error = result.exceptionOrNull()?.message ?: "Unknown error"
-                    Log.e("EditContent", "Failed to load library: $error")
                     snackbarHostState.showSnackbar("Error: $error")
-                    Log.d("EditContent", "Snackbar shown with error message")
                 }
             }
 
             // Handle empty library state
             if (library.isEmpty()) {
-                Log.d("EditContent", "Library is empty — showing empty state")
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -626,8 +612,6 @@ fun EditContent(context: Context, snackbarHostState: SnackbarHostState) {
                     Text("No blueprints in your library yet.")
                 }
             } else {
-                // Use LibraryList composable here
-                Log.d("EditContent", "Rendering LibraryList with ${library.size} items")
                 LibraryList(
                     library = library,
                 )
@@ -655,29 +639,6 @@ fun NewsContent() {
     }
 }
 
-
-//Background Functions
-@SuppressLint("CoroutineCreationDuringComposition")
-@Composable
-fun getFilePaths(directoryPath: String, snackbarHostState: SnackbarHostState): List<String> {
-    val scope = rememberCoroutineScope()
-    val fileList = mutableListOf<String>()
-    val directory = File(directoryPath)
-
-    if (directory.exists() && directory.isDirectory) {
-        directory.walkTopDown().forEach { file ->
-            if (file.isFile) {
-                fileList.add(file.absolutePath)
-            }
-        }
-    } else {
-        scope.launch {
-            snackbarHostState.showSnackbar("The specified path is not a directory or does not exist.")
-        }
-    }
-
-    return fileList
-}
 
 @SuppressLint("QueryPermissionsNeeded")
 private fun openSettings(activity: Activity) {
@@ -723,7 +684,7 @@ fun ProfileBottomSheetContent(
             .fillMaxWidth()
             .padding(24.dp)
     ) {
-        Row (
+        Row(
             verticalAlignment = Alignment.CenterVertically
         ) {
             val user = FirebaseAuth.getInstance().currentUser
@@ -751,7 +712,7 @@ fun ProfileBottomSheetContent(
                     )
                 }
             }
-            Column (
+            Column(
                 modifier = Modifier.padding(16.dp)
             ) {
                 Text(
@@ -828,7 +789,10 @@ fun ExpandableFab(
     onCreateClick: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val rotation by animateFloatAsState(targetValue = if (expanded) 45f else 0f, label = "FAB Rotation")
+    val rotation by animateFloatAsState(
+        targetValue = if (expanded) 45f else 0f,
+        label = "FAB Rotation"
+    )
 
     Box(
         modifier = Modifier
@@ -847,7 +811,12 @@ fun ExpandableFab(
             ) {
                 ExtendedFloatingActionButton(
                     text = { Text("Upload") },
-                    icon = { Icon(painter = painterResource(id = R.drawable.share_24px), contentDescription = "Upload") },
+                    icon = {
+                        Icon(
+                            painter = painterResource(id = R.drawable.share_24px),
+                            contentDescription = "Upload"
+                        )
+                    },
                     onClick = {
                         expanded = false
                         onUploadClick()
@@ -862,7 +831,12 @@ fun ExpandableFab(
             ) {
                 ExtendedFloatingActionButton(
                     text = { Text("Create") },
-                    icon = { Icon(painter = painterResource(id = R.drawable.add_24px), contentDescription = "Add") },
+                    icon = {
+                        Icon(
+                            painter = painterResource(id = R.drawable.add_24px),
+                            contentDescription = "Add"
+                        )
+                    },
                     onClick = {
                         expanded = false
                         onCreateClick()
@@ -906,7 +880,11 @@ fun UpdateDisplayNameDialog(
                 )
                 errorMessage?.let {
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text(it, color = colorScheme.onErrorContainer, style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        it,
+                        color = colorScheme.onErrorContainer,
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
             }
         },
@@ -955,7 +933,9 @@ fun updateFirebaseDisplayName(
         user.updateProfile(profileUpdates)
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
-                    val databaseRef = FirebaseDatabase.getInstance().getReference("userdata").child(uid).child("username")
+                    val databaseRef =
+                        FirebaseDatabase.getInstance().getReference("userdata").child(uid)
+                            .child("username")
 
                     databaseRef.setValue(newName)
                         .addOnSuccessListener { onSuccess() }
@@ -1032,41 +1012,26 @@ fun FirebaseNotificationSnackbar() {
     LaunchedEffect(Unit) {
         fetchInAppNotification { notif ->
             if (notif != null) {
-                Log.d("InAppNotification", "Fetched Notification: ${notif}")
-
-                // Check if visible field is true
                 if (notif.visible) {
-                    // Log and proceed with showing the snackbar
-                    Log.d("InAppNotification", "Notification visible: ${notif.message}")
-
-                    // Define the key for SharedPreferences to track whether the user has seen this notification
                     val seenKey = "notif_seen_${notif.title}_${notif.timestamp}"
 
-                    // Check if the key exists in SharedPreferences
                     val hasSeen = prefs.contains(seenKey) && prefs.getBoolean(seenKey, false)
 
-                    // If the notification hasn't been seen, show it
                     if (!hasSeen) {
                         notification = notif
 
-                        // Use coroutineScope to show the snackbar
                         coroutineScope.launch {
                             val result = snackbarHostState.showSnackbar(
                                 message = notif.message,
                                 actionLabel = "Dismiss",
                                 duration = SnackbarDuration.Indefinite
                             )
-                            // When user dismisses the snackbar, mark it as seen
                             if (result == SnackbarResult.ActionPerformed) {
                                 prefs.edit().putBoolean(seenKey, true).apply()
                             }
                         }
                     }
-                } else {
-                    Log.d("InAppNotification", "Notification is not visible: ${notif.message}")
                 }
-            } else {
-                Log.d("InAppNotification", "Notification is null")
             }
         }
     }
@@ -1086,30 +1051,23 @@ fun fetchInAppNotification(onNotification: (InAppNotification?) -> Unit) {
 fun loadUserLibrary(context: Context): Result<Map<String, LibraryEntry>> {
     return try {
         val file = File(context.getExternalFilesDir(null), "library/blueprint/library.json")
-        Log.d("loadUserLibrary", "Looking for file at: ${file.absolutePath}")
 
         if (file.exists()) {
             val gson = Gson()
             val type = object : TypeToken<Map<String, LibraryEntry>>() {}.type
             val json = file.readText()
 
-            Log.d("loadUserLibrary", "File found. Raw JSON: $json")
-
             val data = gson.fromJson<Map<String, LibraryEntry>>(json, type)
 
             if (data == null) {
-                Log.w("loadUserLibrary", "Parsed data is null, returning empty map.")
                 Result.success(emptyMap())
             } else {
-                Log.d("loadUserLibrary", "Parsed ${data.size} entries from library.")
                 Result.success(data)
             }
         } else {
-            Log.e("loadUserLibrary", "File not found.")
             Result.failure(FileNotFoundException("Library file not found."))
         }
     } catch (e: Exception) {
-        Log.e("loadUserLibrary", "Exception occurred: ${e.message}", e)
         Result.failure(e)
     }
 }
@@ -1126,13 +1084,20 @@ fun LibraryEntryItem(
             .fillMaxWidth()
             .padding(8.dp)
             .clickable { onSelectedChanged() },
-        elevation = CardDefaults.cardElevation(4.dp)
+        colors = CardDefaults.cardColors(
+            containerColor = colorScheme.surfaceContainerLow
+        )
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(entry.name, style = MaterialTheme.typography.titleLarge)
-            Text("Saved at: ${formatTimestamp(entry.timestamp)}", style = MaterialTheme.typography.bodySmall)
+            Text(
+                "Saved at: ${formatTimestamp(entry.timestamp)}",
+                style = MaterialTheme.typography.bodySmall
+            )
 
-            Column(modifier = Modifier.animateContentSize()) {
+            Column(
+                modifier = Modifier.animateContentSize()
+            ) {
                 if (isSelected) {
                     Row(
                         modifier = Modifier
@@ -1157,7 +1122,7 @@ fun LibraryEntryItem(
                             dataRef.get().addOnSuccessListener { snapshot ->
 
                                 val link = snapshot.getValue(String::class.java)
-                                retreiveFile(context, link.toString(), color)
+                                retrieveFile(context, link.toString(), color)
 
                             }.addOnFailureListener {
                                 showDialog = true
@@ -1199,7 +1164,7 @@ fun LibraryList(library: List<LibraryEntry>) {
     }
 }
 
-fun retreiveFile(context: Context, url: String, color: Int) {
+fun retrieveFile(context: Context, url: String, color: Int) {
     val customTabsIntent = CustomTabsIntent.Builder()
         .setShowTitle(true)
         .setToolbarColor(color)  // Directly use the ARGB color value

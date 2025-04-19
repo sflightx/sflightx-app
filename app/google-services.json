@@ -60,6 +60,14 @@
           }
         },
         {
+          "client_id": "219145189221-p3sntdar3vjh39ru64lcvii2n1ika0d6.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.sflightx.app",
+            "certificate_hash": "fec9dbbeaa2f3e8ba17693f282dad8d6604e55ba"
+          }
+        },
+        {
           "client_id": "219145189221-vkh9acbj3obhb0i1k3247e1lvdgvbsqd.apps.googleusercontent.com",
           "client_type": 3
         }

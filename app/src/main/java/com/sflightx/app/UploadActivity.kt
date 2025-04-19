@@ -5,8 +5,7 @@ import android.app.*
 import android.content.*
 import android.net.*
 import android.os.*
-import android.util.Log
-import android.widget.Toast
+import android.widget.*
 import androidx.activity.*
 import androidx.activity.compose.*
 import androidx.compose.foundation.*
@@ -18,26 +17,15 @@ import androidx.compose.ui.*
 import androidx.compose.ui.draw.*
 import androidx.compose.ui.input.nestedscroll.*
 import androidx.compose.ui.platform.*
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.*
 import androidx.compose.ui.unit.*
-import androidx.core.net.toUri
+import androidx.core.net.*
 import coil.compose.*
 import com.google.firebase.auth.*
 import com.google.firebase.database.*
 import com.google.firebase.storage.*
 import com.sflightx.app.ui.theme.*
 import kotlinx.coroutines.*
-import kotlin.Any
-import kotlin.Boolean
-import kotlin.Exception
-import kotlin.Int
-import kotlin.OptIn
-import kotlin.Pair
-import kotlin.String
-import kotlin.Suppress
-import kotlin.Unit
-import kotlin.to
-import kotlin.toString
 
 @Suppress("DEPRECATION")
 class UploadActivity : ComponentActivity() {
@@ -680,15 +668,6 @@ fun handleSubmission(context: Context, blueprintData: Map<String, Any>) {
     val selectedGame = blueprintData["game"] as? String
     val selectedType = blueprintData["type"] as? String
 
-    Log.d("Blueprint Upload", "imageUri: $imageUri")
-    Log.d("Blueprint Upload", "postKey: $postKey")
-    Log.d("Blueprint Upload", "fileName: $fileName")
-    Log.d("Blueprint Upload", "link: $link")
-    Log.d("Blueprint Upload", "description: $description")
-    Log.d("Blueprint Upload", "userId: $userId")
-    Log.d("Blueprint Upload", "selectedGame: $selectedGame")
-    Log.d("Blueprint Upload", "selectedType: $selectedType")
-
     if (imageUri != null && postKey != null && fileName != null && link != null && description != null) {
         uploadImageToFirebaseStorage(imageUri.toUri(), postKey,
             onSuccess = { imageDownloadUrl ->
@@ -714,15 +693,11 @@ fun handleSubmission(context: Context, blueprintData: Map<String, Any>) {
                         activity?.finish()
                     }
                     .addOnFailureListener { exception ->
-                        Log.e("Blueprint Upload", "Failed to upload data", exception)
                     }
             },
             onFailure = { exception ->
-                Log.e("Image Upload", "Failed to upload image", exception)
             }
         )
-    } else {
-        Log.e("Blueprint Upload", "Missing required data.")
     }
 }
 
@@ -743,7 +718,6 @@ fun addToProfile(postKey: String, uid: String) {
         }
         profileRef.setValue(updatedList)
     }.addOnFailureListener {
-        Log.e("Firebase", "Failed to fetch uploads", it)
     }
 }
 

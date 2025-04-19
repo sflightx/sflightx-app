@@ -16,7 +16,7 @@ android {
         //noinspection OldTargetApi
         targetSdk = 34
         multiDexEnabled = true
-        versionCode = 1
+        versionCode = 3
         versionName = "0.01"
     }
 
@@ -48,6 +48,10 @@ android {
         compose = true
         viewBinding = true
     }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
 }
 
 dependencies {
@@ -69,9 +73,10 @@ dependencies {
     implementation(libs.google.accompanist.flowlayout)
     implementation(libs.androidx.browser)
     implementation(libs.gson)
+    implementation(libs.okhttp)
+
 
     implementation(project(":ImageCrop"))
-    implementation(project(":EnhancedFirebase"))
 
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.analytics)

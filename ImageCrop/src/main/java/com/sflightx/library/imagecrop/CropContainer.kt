@@ -5,13 +5,13 @@ import android.net.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.*
 import androidx.compose.material.icons.*
 import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.*
 import androidx.compose.ui.geometry.*
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.input.pointer.*
@@ -39,8 +39,6 @@ class CropContainer {
                 val inputStream = context.contentResolver.openInputStream(imageUri)
                 bitmap = BitmapFactory.decodeStream(inputStream)
             }
-
-            val cropRatio = 0.7f
 
             var previewBitmap by remember { mutableStateOf<Bitmap?>(null) }
             LaunchedEffect(bitmap, scale, rotation, imageOffset, cropBoxSize) {

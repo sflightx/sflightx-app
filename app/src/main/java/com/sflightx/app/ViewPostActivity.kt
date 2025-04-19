@@ -2,7 +2,7 @@
 
 package com.sflightx.app
 
-import android.annotation.SuppressLint
+import android.annotation.*
 import android.app.*
 import android.content.*
 import android.os.*
@@ -27,26 +27,18 @@ import androidx.compose.ui.res.*
 import androidx.compose.ui.text.font.*
 import androidx.compose.ui.text.style.*
 import androidx.compose.ui.unit.*
-import androidx.core.content.*
 import androidx.core.net.*
 import coil.compose.*
 import com.google.android.gms.tasks.*
-import com.google.firebase.database.*
 import com.google.firebase.auth.*
+import com.google.firebase.database.*
+import com.google.firebase.database.ktx.*
+import com.google.firebase.ktx.*
+import com.google.gson.*
+import com.google.gson.reflect.*
 import com.sflightx.app.ui.theme.*
 import kotlinx.coroutines.*
-import androidx.core.net.toUri
-import com.google.firebase.database.ktx.database
-import com.google.firebase.ktx.Firebase
-import android.util.Log
-import android.widget.Toast
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.ui.Modifier
-import coil.util.CoilUtils.result
-import java.io.File
-import java.io.IOException
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
+import java.io.*
 
 
 @Suppress("DEPRECATION")
@@ -153,8 +145,7 @@ fun DetailsLayout(blueprint: Blueprint?, scrollBehavior: TopAppBarScrollBehavior
 
     Column {
         PosterInfo(blueprint, collapsedFraction, snackbarHostState)
-        FileInfo(blueprint, collapsedFraction)
-        RatingInfo(blueprint, collapsedFraction)
+        FileInfo(blueprint)
         Box(
             modifier = Modifier
                 .padding(bottom = 16.dp)
@@ -179,7 +170,7 @@ fun DetailsLayout(blueprint: Blueprint?, scrollBehavior: TopAppBarScrollBehavior
                     imageHeight = if (imageHeight == 250) { 750 } else { 250 }
                 }) {
                     Icon(
-                        painter = painterResource(if (imageHeight == 250) R.drawable.info_24px else R.drawable.check_24px),
+                        painter = painterResource(if (imageHeight == 250) R.drawable.expand_content_24px else R.drawable.collapse_content_24px),
                         contentDescription = "Open",
                         modifier = Modifier.size(24.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
@@ -188,12 +179,13 @@ fun DetailsLayout(blueprint: Blueprint?, scrollBehavior: TopAppBarScrollBehavior
             }
 
         }
-        CommentInfo(blueprint, collapsedFraction, snackbarHostState)
+        RatingInfo()
+        CommentInfo(blueprint, snackbarHostState)
     }
 }
 
 @Composable
-fun FileInfo(blueprint: Blueprint?, collapsedFraction: Float) {
+fun FileInfo(blueprint: Blueprint?) {
     Box (
         modifier = Modifier
             .fillMaxWidth()
@@ -266,14 +258,13 @@ fun FileInfo(blueprint: Blueprint?, collapsedFraction: Float) {
 }
 
 @Composable
-fun RatingInfo(blueprint: Blueprint?, collapsedFraction: Float) {
+fun RatingInfo() {
     val rating = remember { mutableIntStateOf(0) }
     Box (
         modifier = Modifier
             .fillMaxWidth()
             .padding(bottom = 16.dp)
             .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainer)
     ) {
         Column (
             modifier = Modifier
@@ -293,7 +284,7 @@ fun RatingInfo(blueprint: Blueprint?, collapsedFraction: Float) {
 }
 
 @Composable
-fun CommentInfo(blueprint: Blueprint?, collapsedFraction: Float, snackbarHostState: SnackbarHostState) {
+fun CommentInfo(blueprint: Blueprint?, snackbarHostState: SnackbarHostState) {
     val comments = remember { mutableStateListOf<Comment>() }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -455,7 +446,7 @@ fun PosterInfo(blueprint: Blueprint?, collapsedFraction: Float, snackbarHostStat
                 )
             } else {
                 Icon(
-                    painter = painterResource(id = R.drawable.account_circle_24px),
+                    painter = painterResource(id = R.drawable.person_24px),
                     contentDescription = "Account",
                     modifier = Modifier.size(64.dp),
                     tint = MaterialTheme.colorScheme.onSurface
@@ -500,7 +491,7 @@ fun PosterInfo(blueprint: Blueprint?, collapsedFraction: Float, snackbarHostStat
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        painter = painterResource(id = R.drawable.account_circle_24px),
+                        painter = painterResource(id = R.drawable.person_24px),
                         contentDescription = "View Profile",
                         modifier = Modifier.size(24.dp)
                     )
@@ -765,10 +756,8 @@ fun incrementDownloadCount(postKey: String) {
         // Update the download count in the database
         blueprintRef.child("downloads").setValue(newDownloads)
             .addOnSuccessListener {
-                Log.d("Download", "Download count updated successfully")
             }
             .addOnFailureListener { exception ->
-                Log.e("Download", "Failed to update download count", exception)
             }
     }
 }
@@ -820,10 +809,8 @@ fun saveToUserLibrary(
 
     try {
         file.writeText(gson.toJson(currentData))
-        Log.d("Library", "Saved $postKey to library.json")
         onResult(true, "Saved to library, opening app...")
     } catch (e: IOException) {
-        Log.e("Library", "Failed to write library.json", e)
         onResult(false, "Error saving to library: ${e.message}")
     }
 }

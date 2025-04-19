@@ -1,17 +1,8 @@
 package com.sflightx.app
 
-import android.annotation.SuppressLint
-import android.content.Intent
-import android.net.Uri
-import android.provider.Settings
-import androidx.compose.runtime.Composable
-
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.graphics.painter.Painter
-import androidx.compose.ui.platform.LocalContext
-import com.google.firebase.database.core.Context
-import java.io.Serializable
+import androidx.compose.runtime.*
+import androidx.compose.ui.graphics.painter.*
+import java.io.*
 
 class AppDataClass {
 
@@ -67,14 +58,7 @@ data class AppSettings(
 enum class SettingType {
     ACTION,
     SWITCH,
-    CHECKBOX,
-    DROPDOWN,
-    SLIDER,
-    TEXT_INPUT,
-    DATE_PICKER,
-    TIME_PICKER,
-    FILE_PICKER,
-    DIALOG
+    TEXT_INPUT
 }
 
 data class SettingItem(

@@ -1,45 +1,43 @@
 package com.sflightx.app
 
-import android.annotation.SuppressLint
-import android.content.Context
-import android.content.Intent
-import android.content.pm.*
-import android.net.Uri
+import android.annotation.*
+import android.app.*
+import android.content.*
+import android.graphics.Color
+import android.net.*
 import android.os.*
-import android.util.Log
-import android.widget.Toast
+import android.provider.*
+import android.util.*
+import android.view.*
+import android.webkit.*
+import android.widget.*
 import androidx.activity.*
 import androidx.activity.compose.*
+import androidx.compose.animation.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.*
+import androidx.compose.foundation.shape.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.*
+import androidx.compose.ui.draw.*
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.input.nestedscroll.*
+import androidx.compose.ui.layout.*
 import androidx.compose.ui.platform.*
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.*
+import androidx.compose.ui.text.font.*
 import androidx.compose.ui.unit.*
+import androidx.compose.ui.viewinterop.*
+import androidx.core.content.pm.*
+import androidx.core.net.*
 import androidx.core.view.*
 import com.google.accompanist.systemuicontroller.*
+import com.google.firebase.database.*
+import com.sflightx.app.bottomsheet.*
 import com.sflightx.app.ui.theme.*
-import android.provider.Settings
-import androidx.compose.animation.animateContentSize
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontWeight
-import androidx.core.content.pm.PackageInfoCompat
-import androidx.core.net.toUri
-import com.google.firebase.database.FirebaseDatabase
-import com.sflightx.app.bottomsheet.GlobalBottomSheetHost
-import com.sflightx.app.bottomsheet.LocalBottomSheetController
-import java.nio.file.WatchEvent
 
 
 @Suppress("DEPRECATION")
@@ -58,7 +56,6 @@ class SettingsActivity : ComponentActivity() {
                     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
                     val scrollState = rememberScrollState()
                     val collapsedFraction = scrollBehavior.state.collapsedFraction
-                    val context = LocalContext.current
 
                     val systemUiController = rememberSystemUiController()
                     val isLightTheme = MaterialTheme.colorScheme.background.luminance() > 0.5
@@ -70,7 +67,6 @@ class SettingsActivity : ComponentActivity() {
                     val dialogState = rememberDialogState()
 
                     if (dialogState.show.value) {
-                        Log.d("DialogDebug", "Showing dialog now")
                         when (dialogState.type.value) {
                             DialogType.SWITCH -> {
                                 RefinedSwitchDialog(
@@ -165,8 +161,7 @@ class SettingsActivity : ComponentActivity() {
                                         if (item.type == SettingType.SWITCH) {
                                             item.onValueChanged?.invoke(isChecked)
                                         }
-                                    },
-                                    dialogState = dialogState
+                                    }
                                 )
                             }
 
@@ -202,7 +197,7 @@ fun MainSettingsScreen(
                     onClick = {
                         dialogState.showInputDialog(
                             title = "Download Path",
-                            message = "Currently, changing downlaod paths is not supported.",
+                            message = "Currently, changing download paths is not supported.",
                             initialValue = "Path"
                         ) { newName ->
                             //viewModel.updateNickname(newName)
@@ -338,7 +333,7 @@ fun MainSettingsScreen(
                     type = SettingType.ACTION,
                     onClick = {
                         bottomSheetController.show {
-                            CheckUpdates()
+                            CheckUpdates(onDismiss = { bottomSheetController.hide() })
                         }
                     }
                 ),
@@ -360,8 +355,7 @@ fun MainSettingsScreen(
 @Composable
 fun SubcategoryScreen(
     category: AppSettings,
-    onItemValueChanged: (SettingItem, Boolean) -> Unit,
-    dialogState: DialogState
+    onItemValueChanged: (SettingItem, Boolean) -> Unit
 ) {
     val switchStates = remember {
         mutableStateMapOf<String, Boolean>().apply {
@@ -383,8 +377,7 @@ fun SubcategoryScreen(
                     switchStates[item.name.toString()] = isChecked
                     onItemValueChanged(item, isChecked)
                     item.onValueChanged?.invoke(isChecked)
-                },
-                dialogState = dialogState
+                }
             )
         }
     }
@@ -392,43 +385,56 @@ fun SubcategoryScreen(
 
 
 @Composable
-fun CheckUpdates() {
+fun CheckUpdates(onDismiss: () -> Unit) {
     val context = LocalContext.current
     val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
 
-    val packageName = context.packageName
     val versionCode = PackageInfoCompat.getLongVersionCode(packageInfo)
     val versionName = packageInfo.versionName
 
-    Column (
+    Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Box(
-            modifier = Modifier.fillMaxWidth(),
-            contentAlignment = Alignment.Center
-        ) {
-            Text("SFlightX App", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-        }
+        Text(
+            text = "SFlightX App",
+            style = MaterialTheme.typography.headlineLarge,
+            fontWeight = FontWeight.Bold
+        )
+
         Spacer(modifier = Modifier.height(16.dp))
-        Row (
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center
         ) {
             Text("Version: $versionName", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(modifier = Modifier.width(4.dp))
             Text("($versionCode)", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+
         Spacer(modifier = Modifier.height(48.dp))
-        VersionCheckIndicator { latestVersion, updateUrl ->
-        }
+
+        VersionCheckIndicator(
+            context = context,
+            onUpdateNeeded = { latestVersion, updateUrl, changelog ->
+                // Optionally handle update button pressed
+            },
+            onDismiss = onDismiss
+        )
+
+        Spacer(modifier = Modifier.weight(1f))
+
         Box(
             modifier = Modifier
-                .fillMaxSize()
+                .fillMaxWidth()
                 .navigationBarsPadding()
         )
     }
 }
+
 
 @Composable
 fun SettingListItem(
@@ -436,8 +442,7 @@ fun SettingListItem(
     isChecked: Boolean = false,
     input: String? = null,
     onSwitchChanged: (Boolean) -> Unit,
-    onTextChanged: ((String) -> Unit)? = null,
-    dialogState: DialogState? = null
+    onTextChanged: ((String) -> Unit)? = null
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -697,24 +702,6 @@ fun DialogState.showDialog(
     this.show.value = true
 }
 
-fun DialogState.showSwitchDialog(
-    title: String,
-    message: String,
-    initialChecked: Boolean = false,
-    actionText: String = "Apply",
-    onConfirm: (Boolean) -> Unit
-) {
-    this.title.value = title
-    this.message.value = message
-    this.actionText.value = actionText
-    this.switchState.value = initialChecked
-    this.type.value = DialogType.SWITCH
-    this.onConfirm.value = {
-        onConfirm(this.switchState.value)
-    }
-    this.show.value = true
-}
-
 fun DialogState.showInputDialog(
     title: String,
     message: String,
@@ -746,8 +733,7 @@ fun openYouTubeChannel(context: Context, channelUrl: String) {
         val intent = Intent(Intent.ACTION_VIEW, "vnd.youtube://$channelUrl".toUri())
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         context.startActivity(intent)
-    } catch (e: Exception) {
-        // If YouTube app is not installed, open in browser
+    } catch (_: Exception) {
         val intent = Intent(Intent.ACTION_VIEW, "https://www.youtube.com/$channelUrl".toUri())
         context.startActivity(intent)
     }
@@ -759,7 +745,7 @@ fun openDiscordServer(context: Context, serverUrl: String) {
         val intent = Intent(Intent.ACTION_VIEW, "discord://$serverUrl".toUri())
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         context.startActivity(intent)
-    } catch (e: Exception) {
+    } catch (_: Exception) {
         // If Discord app is not installed, open in browser
         val intent = Intent(Intent.ACTION_VIEW, "https://discord.gg/$serverUrl".toUri())
         context.startActivity(intent)
@@ -775,20 +761,27 @@ fun openXProfile(context: Context, profileUrl: String) {
 @Composable
 fun VersionCheckIndicator(
     context: Context = LocalContext.current,
-    onUpdateNeeded: (latestVersionName: String, updateUrl: String?) -> Unit
+    onUpdateNeeded: (latestVersionName: String, updateUrl: String?, changelog: String?) -> Unit,
+    onDismiss: () -> Unit
 ) {
     var isChecking by remember { mutableStateOf(true) }
     var isUpToDate by remember { mutableStateOf(false) }
     var latestVersion by remember { mutableStateOf("") }
+    var changeLog by remember { mutableStateOf("") }
+    var updateUrl by remember { mutableStateOf<String?>(null) }
+
+    val scrollState = rememberScrollState()
 
     LaunchedEffect(Unit) {
         checkForAppUpdate(
             context = context,
-            onUpdateNeeded = { latest, url ->
+            onUpdateNeeded = { latest, url, changelog ->
                 isUpToDate = false
                 isChecking = false
                 latestVersion = latest
-                onUpdateNeeded(latest, url)
+                changeLog = changelog.orEmpty()
+                updateUrl = url
+                onUpdateNeeded(latest, url, changelog)
             },
             onUpToDate = {
                 isUpToDate = true
@@ -797,7 +790,11 @@ fun VersionCheckIndicator(
         )
     }
 
-    Column {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
         Box(
             modifier = Modifier.fillMaxWidth(),
             contentAlignment = Alignment.Center
@@ -822,25 +819,64 @@ fun VersionCheckIndicator(
                 )
             }
         }
-        Spacer(modifier = Modifier.height(48.dp))
-        Button(
-            modifier = Modifier.fillMaxWidth(),
-            onClick = {}
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Row(modifier = Modifier.fillMaxWidth()) {
+            Button(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(end = 8.dp),
+                onClick = {
+                    if (isUpToDate) {
+                        // Optionally trigger a recheck
+                    } else {
+                        updateUrl?.let {
+                            val intent = Intent(context, UpdateActivity::class.java).apply {
+                                putExtra("url", it)
+                                putExtra("version", latestVersion)
+                            }
+                            context.startActivity(intent)
+                            (context as Activity).finishAffinity()
+                        }
+                    }
+                },
+                enabled = !isChecking && (!isUpToDate && !updateUrl.isNullOrBlank())
             ) {
-                Text(if (isUpToDate) "Check for Updates" else "Update Now (v$latestVersion)", style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    text = if (isUpToDate) "Check for Updates" else "Update Now (v$latestVersion)",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+
+            OutlinedButton(
+                modifier = Modifier
+                    .padding(start = 8.dp),
+                onClick = onDismiss
+            ) {
+                Text("Close", style = MaterialTheme.typography.bodyMedium)
             }
         }
-        Spacer(modifier = Modifier.height(96.dp))
+        Spacer(modifier = Modifier.height(24.dp))
+        Text("Changelog", style = MaterialTheme.typography.titleMedium)
+        Spacer(modifier = Modifier.height(24.dp))
+
+        if (!isUpToDate && latestVersion.isNotBlank()) {
+            Column(
+                modifier = Modifier
+                    .verticalScroll(scrollState)
+                    .fillMaxWidth()
+                    .heightIn(min = 100.dp, max = 300.dp)
+            ) {
+                WebViewScreen("https://sflightx.com/changelog/v${latestVersion}")
+            }
+        }
     }
 }
 
-
 fun checkForAppUpdate(
     context: Context,
-    onUpdateNeeded: (latestVersionName: String, updateUrl: String?) -> Unit,
+    onUpdateNeeded: (latestVersionName: String, updateUrl: String?, changelog: String?) -> Unit,
     onUpToDate: () -> Unit
 ) {
     val database = FirebaseDatabase.getInstance().reference
@@ -850,15 +886,15 @@ fun checkForAppUpdate(
     database.child("app/version").get().addOnSuccessListener { snapshot ->
         val latestVersionName = snapshot.child("name").getValue(Double::class.java)
         val updateUrl = snapshot.child("url").getValue(String::class.java)
+        val changeLog = snapshot.child("changelog").getValue(String::class.java)
 
         if (latestVersionName.toString() != currentVersionName) {
-            onUpdateNeeded(latestVersionName.toString(), updateUrl)
+            onUpdateNeeded(latestVersionName.toString(), updateUrl, changeLog)
         } else {
             onUpToDate()
         }
     }.addOnFailureListener {
-        onUpToDate() // fallback: assume up-to-date if check fails
-        Log.e("AppUpdateCheck", "Failed to check version", it)
+        onUpToDate()
     }
 }
 
@@ -895,4 +931,18 @@ fun DeveloperContent() {
             )
         }
     }
+}
+
+@SuppressLint("SetJavaScriptEnabled")
+@Composable
+fun WebViewScreen(urlToRender: String) {
+    AndroidView(factory = { context ->
+        WebView(context).apply {
+            webViewClient = WebViewClient()
+            setBackgroundColor(Color.TRANSPARENT) // Fully transparent
+            setLayerType(View.LAYER_TYPE_SOFTWARE, null)
+            settings.javaScriptEnabled = true
+            loadUrl(urlToRender)
+        }
+    })
 }

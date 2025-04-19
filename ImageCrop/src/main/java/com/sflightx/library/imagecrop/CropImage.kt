@@ -17,9 +17,10 @@ class CropImage {
             cropBoxSize: Size,
             imageOffset: Offset
         ): Bitmap {
-            val cropSize = cropBoxSize.width.toInt() // Assuming square crop
+            val cropSize = cropBoxSize.width.toInt()
 
-            val outputBitmap = Bitmap.createBitmap(cropSize, cropSize, Bitmap.Config.ARGB_8888)
+            //val outputBitmap = Bitmap.createBitmap(cropSize, cropSize, Bitmap.Config.ARGB_8888)
+            val outputBitmap = createBitmap(cropSize, cropSize)
             val canvas = Canvas(outputBitmap)
 
             val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)

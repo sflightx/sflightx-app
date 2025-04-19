@@ -1,7 +1,5 @@
 @file:Suppress("DEPRECATION", "UnstableApiUsage")
 
-include(":EnhancedFirebase")
-
 
 include(":EnhancedDatabasae")
 

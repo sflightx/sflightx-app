@@ -16,7 +16,6 @@ class CropIntent {
         fun SetIntent(context: Context, imageUri: Uri?) {
             if (context is Activity) {
                 if (imageUri != null) {
-                    Log.d("ImageReceiver", "Image received.")
                     CropContainer.AdvancedCropScreen(
                         imageUri = imageUri,
                         onCrop = { bitmap ->
@@ -32,7 +31,6 @@ class CropIntent {
         }
         fun postIntent(context: Context, bitmap: Bitmap) {
             val uri = CropUtils.saveBitmapToFile(context, bitmap, "image")
-            Log.d("ImageReceiver", "Image cropped at Uri $uri.")
             val resultIntent = Intent().apply {
                 putExtra("croppedImageUri", uri)
             }

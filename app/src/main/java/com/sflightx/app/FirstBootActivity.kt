@@ -11,6 +11,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
@@ -20,12 +21,11 @@ import androidx.compose.ui.text.font.*
 import androidx.compose.ui.unit.*
 import androidx.core.app.*
 import androidx.core.content.*
-import com.google.accompanist.flowlayout.*
 import com.sflightx.app.ui.theme.*
 
 @Suppress("DEPRECATION")
 class FirstBootActivity : ComponentActivity() {
-    private val STORAGE_PERMISSION_CODE = 101
+    private val storagePermissionCode = 101
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -40,7 +40,7 @@ class FirstBootActivity : ComponentActivity() {
         ActivityCompat.requestPermissions(
             this,
             arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE),
-            STORAGE_PERMISSION_CODE
+            storagePermissionCode
         )
     }
 
@@ -51,7 +51,7 @@ class FirstBootActivity : ComponentActivity() {
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == STORAGE_PERMISSION_CODE) {
+        if (requestCode == storagePermissionCode) {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 // Permission granted, you can proceed
             } else {
@@ -92,8 +92,8 @@ fun FirstBootAppLayout(requestStoragePermission: () -> Unit) {
                     )
 
                     FilledTonalButton(onClick = {
-                        val PREFS_NAME = "sflightx.settings"
-                        val KEY_FIRST_BOOT = "first_boot"
+                        val prefsName = "sflightx.settings"
+                        val keyFirstBoot = "first_boot"
                         if (selectedTab < 2) {
                             selectedTab++
                             currentProgress = (selectedTab.toFloat() + 1) / 3
@@ -101,8 +101,8 @@ fun FirstBootAppLayout(requestStoragePermission: () -> Unit) {
                         }
                         val intent = Intent(context, MainActivity::class.java)
                         context.startActivity(intent)
-                        val sharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                        sharedPreferences.edit { putBoolean(KEY_FIRST_BOOT, false) }
+                        val sharedPreferences = context.getSharedPreferences(prefsName, Context.MODE_PRIVATE)
+                        sharedPreferences.edit { putBoolean(keyFirstBoot, false) }
                         (context as? Activity)?.finish()
 
                     },
@@ -274,14 +274,17 @@ fun TabContent3() {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
-                    FlowRow(
-                        mainAxisSpacing = 8.dp,
-                        crossAxisSpacing = 8.dp,
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(minSize = 120.dp),
                         modifier = Modifier.padding(16.dp)
                     ) {
-                        AssistChip(onClick = {}, label = { Text("Juno: New Origins") })
-                        AssistChip(onClick = {}, label = { Text("Spaceflight Simulator") })
-                        AssistChip(onClick = {}, label = { Text("Kerbal Space Program") })
+                        items(3) { index ->
+                            when (index) {
+                                0 -> AssistChip(onClick = {}, label = { Text("Juno: New Origins") })
+                                1 -> AssistChip(onClick = {}, label = { Text("Spaceflight Simulator") })
+                                2 -> AssistChip(onClick = {}, label = { Text("Kerbal Space Program") })
+                            }
+                        }
                     }
                 }
             }

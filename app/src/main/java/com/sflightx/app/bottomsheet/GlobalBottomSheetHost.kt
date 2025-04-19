@@ -14,8 +14,8 @@ fun GlobalBottomSheetHost(
     val scope = rememberCoroutineScope()
 
     val sheetState = rememberModalBottomSheetState(
-        skipPartiallyExpanded = false, // optional: force only expanded/collapsed
-        confirmValueChange = { true },
+        skipPartiallyExpanded = true,
+        confirmValueChange = { false },
     )
 
     CompositionLocalProvider(LocalBottomSheetController provides bottomSheetController) {
@@ -35,7 +35,7 @@ fun GlobalBottomSheetHost(
                 onDismissRequest = { bottomSheetController.hide() },
                 sheetState = sheetState,
                 containerColor = MaterialTheme.colorScheme.surface,
-                modifier = modifier
+                modifier = modifier,
             ) {
                 sheetContent()
             }
