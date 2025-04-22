@@ -36,6 +36,7 @@ import com.google.firebase.database.ktx.*
 import com.google.firebase.ktx.*
 import com.google.gson.*
 import com.google.gson.reflect.*
+import com.sflightx.app.task.getUserByUid
 import com.sflightx.app.ui.theme.*
 import kotlinx.coroutines.*
 import java.io.*
@@ -45,7 +46,7 @@ import java.io.*
 class ViewPostActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         val key = intent.getStringExtra("key") ?: "null"
-        val data = intent.getSerializableExtra("data") as? Blueprint
+        val data = intent.getSerializableExtra("data") as? BlueprintData
 
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -59,7 +60,7 @@ class ViewPostActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ViewPostLayout(key: String, data: Blueprint?) {
+fun ViewPostLayout(key: String, data: BlueprintData?) {
     val context = LocalContext.current
     val activity = context as? Activity
     val snackbarHostState = remember { SnackbarHostState() }
@@ -137,21 +138,21 @@ fun ViewPostLayout(key: String, data: Blueprint?) {
 @SuppressLint("AutoboxingStateCreation")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DetailsLayout(blueprint: Blueprint?, scrollBehavior: TopAppBarScrollBehavior, snackbarHostState: SnackbarHostState) {
-    val painter = rememberAsyncImagePainter(blueprint?.image_url)
+fun DetailsLayout(blueprintData: BlueprintData?, scrollBehavior: TopAppBarScrollBehavior, snackbarHostState: SnackbarHostState) {
+    val painter = rememberAsyncImagePainter(blueprintData?.image_url)
     val collapsedFraction = scrollBehavior.state.collapsedFraction
     var imageHeight by remember { mutableIntStateOf(250) }
     // Animate alpha based on scroll
 
     Column {
-        PosterInfo(blueprint, collapsedFraction, snackbarHostState)
-        FileInfo(blueprint)
+        PosterInfo(blueprintData, collapsedFraction, snackbarHostState)
+        FileInfo(blueprintData)
         Box(
             modifier = Modifier
                 .padding(bottom = 16.dp)
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(16.dp))
-                .background(MaterialTheme.colorScheme.primaryContainer)
+                .background(MaterialTheme.colorScheme.surfaceContainerLow)
                 .animateContentSize()
         ) {
             Image(
@@ -180,18 +181,18 @@ fun DetailsLayout(blueprint: Blueprint?, scrollBehavior: TopAppBarScrollBehavior
 
         }
         RatingInfo()
-        CommentInfo(blueprint, snackbarHostState)
+        CommentInfo(blueprintData, snackbarHostState)
     }
 }
 
 @Composable
-fun FileInfo(blueprint: Blueprint?) {
+fun FileInfo(blueprintData: BlueprintData?) {
     Box (
         modifier = Modifier
             .fillMaxWidth()
             .padding(bottom = 16.dp)
             .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .background(MaterialTheme.colorScheme.surfaceContainerLow)
     ) {
         Row (
             modifier = Modifier
@@ -209,7 +210,7 @@ fun FileInfo(blueprint: Blueprint?) {
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(4.dp))
-                Text(blueprint?.downloads.toString())
+                Text(blueprintData?.downloads.toString())
             }
             VerticalDivider(modifier = Modifier.fillMaxHeight(1f), thickness = 1.dp)
             Column (
@@ -223,7 +224,7 @@ fun FileInfo(blueprint: Blueprint?) {
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(4.dp))
-                Text("%.1f".format(blueprint?.rating ?: 0.0))
+                Text("%.1f".format(blueprintData?.rating ?: 0.0))
             }
             VerticalDivider(modifier = Modifier.fillMaxHeight(1f), thickness = 1.dp)
             Column (
@@ -237,7 +238,7 @@ fun FileInfo(blueprint: Blueprint?) {
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(4.dp))
-                Text(blueprint?.req_type.toString())
+                Text(blueprintData?.req_type.toString())
             }
             VerticalDivider(modifier = Modifier.fillMaxHeight(1f), thickness = 1.dp)
             Column (
@@ -251,7 +252,7 @@ fun FileInfo(blueprint: Blueprint?) {
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(4.dp))
-                Text(blueprint?.req_game.toString())
+                Text(blueprintData?.req_game.toString())
             }
         }
     }
@@ -284,11 +285,11 @@ fun RatingInfo() {
 }
 
 @Composable
-fun CommentInfo(blueprint: Blueprint?, snackbarHostState: SnackbarHostState) {
+fun CommentInfo(blueprintData: BlueprintData?, snackbarHostState: SnackbarHostState) {
     val comments = remember { mutableStateListOf<Comment>() }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val postId = blueprint?.key
+    val postId = blueprintData?.key
     var isLoaded by remember { mutableStateOf(false) }
     var text by remember { mutableStateOf("") }
     var user = FirebaseAuth.getInstance().currentUser
@@ -325,7 +326,7 @@ fun CommentInfo(blueprint: Blueprint?, snackbarHostState: SnackbarHostState) {
                     modifier = Modifier
                         .padding(bottom = 24.dp)
                         .weight(1f),
-                    text = "User Comments",
+                    text = "UserData Comments",
                     style = MaterialTheme.typography.headlineSmall
                 )
             }
@@ -397,9 +398,10 @@ fun CommentInfo(blueprint: Blueprint?, snackbarHostState: SnackbarHostState) {
 }
 
 @Composable
-fun PosterInfo(blueprint: Blueprint?, collapsedFraction: Float, snackbarHostState: SnackbarHostState) {
-
-    var user by remember { mutableStateOf<User?>(null) }
+fun PosterInfo(blueprintData: BlueprintData?, collapsedFraction: Float, snackbarHostState: SnackbarHostState) {
+    val context = LocalContext.current
+    val activity = context as? Activity
+    var userData by remember { mutableStateOf<UserData?>(null) }
     val showButton = collapsedFraction < 1f
     val scale by animateFloatAsState(
         targetValue = if (showButton) 1f else 0.95f,
@@ -413,10 +415,10 @@ fun PosterInfo(blueprint: Blueprint?, collapsedFraction: Float, snackbarHostStat
         label = "AlphaColumn"
     )
 
-    LaunchedEffect(blueprint?.author) {
-        if (blueprint?.author != null) {
-            val fetchedUser = getUserByUid(blueprint.author)
-            user = fetchedUser
+    LaunchedEffect(blueprintData?.author) {
+        if (blueprintData?.author != null) {
+            val fetchedUser = getUserByUid(blueprintData.author)
+            userData = fetchedUser
         }
     }
 
@@ -425,7 +427,7 @@ fun PosterInfo(blueprint: Blueprint?, collapsedFraction: Float, snackbarHostStat
             .fillMaxWidth()
             .padding(bottom = 16.dp)
             .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .background(MaterialTheme.colorScheme.surfaceContainerLow)
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
@@ -436,9 +438,9 @@ fun PosterInfo(blueprint: Blueprint?, collapsedFraction: Float, snackbarHostStat
         Row(
             modifier = Modifier.padding(16.dp)
         ) {
-            if (!user?.profile.isNullOrEmpty()) {
+            if (!userData?.profile.isNullOrEmpty()) {
                 AsyncImage(
-                    model = user?.profile,
+                    model = userData?.profile,
                     contentDescription = "Profile",
                     modifier = Modifier
                         .size(64.dp)
@@ -454,7 +456,7 @@ fun PosterInfo(blueprint: Blueprint?, collapsedFraction: Float, snackbarHostStat
             }
             Spacer(modifier = Modifier.width(24.dp))
             Text(
-                text = user?.username ?: "Unknown User",
+                text = userData?.username ?: "Unknown UserData",
                 style = MaterialTheme.typography.titleLarge
             )
         }
@@ -485,7 +487,12 @@ fun PosterInfo(blueprint: Blueprint?, collapsedFraction: Float, snackbarHostStat
             Spacer(modifier = Modifier.width(16.dp))
             Button(
                 modifier = Modifier.weight(1f),
-                onClick = {}
+                onClick = {
+                    val intent = Intent(context, ViewUserActivity::class.java)
+                    intent.putExtra("key", userData?.uid)
+                    intent.putExtra("data", userData)
+                    context.startActivity(intent)
+                }
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically
@@ -512,9 +519,9 @@ fun PosterInfo(blueprint: Blueprint?, collapsedFraction: Float, snackbarHostStat
         ) { visible ->
             if (visible) {
                 OpenLinkButton(
-                    key = blueprint?.file_link ?: "null",
-                    postKey = blueprint?.key ?: "null",
-                    name = blueprint?.name ?: "null",
+                    key = blueprintData?.file_link ?: "null",
+                    postKey = blueprintData?.key ?: "null",
+                    name = blueprintData?.name ?: "null",
                     snackbarHostState = snackbarHostState,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -528,27 +535,6 @@ fun PosterInfo(blueprint: Blueprint?, collapsedFraction: Float, snackbarHostStat
     }
 }
 
-@OptIn(ExperimentalCoroutinesApi::class)
-suspend fun getUserByUid(uid: String): User? = suspendCancellableCoroutine { cont ->
-    val userRef = FirebaseDatabase.getInstance().getReference("userdata").child(uid)
-
-    val listener = object : ValueEventListener {
-        override fun onDataChange(snapshot: DataSnapshot) {
-            val user = snapshot.getValue(User::class.java)
-            cont.resume(user) {}
-        }
-
-        override fun onCancelled(error: DatabaseError) {
-            cont.resume(null) {}
-        }
-    }
-
-    userRef.addListenerForSingleValueEvent(listener)
-
-    cont.invokeOnCancellation {
-        userRef.removeEventListener(listener)
-    }
-}
 
 fun fetchCommentsForPost(
     postId: String,

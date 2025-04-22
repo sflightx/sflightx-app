@@ -33,7 +33,6 @@ import androidx.compose.ui.draw.*
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.vector.*
 import androidx.compose.ui.input.nestedscroll.*
-import androidx.compose.ui.layout.*
 import androidx.compose.ui.platform.*
 import androidx.compose.ui.res.*
 import androidx.compose.ui.text.*
@@ -50,10 +49,12 @@ import com.google.firebase.storage.*
 import com.google.gson.*
 import com.google.gson.reflect.*
 import com.sflightx.app.bottomsheet.*
+import com.sflightx.app.layout.*
+import com.sflightx.app.task.*
+import com.sflightx.app.ui.*
 import com.sflightx.app.ui.theme.*
 import com.sflightx.library.imagecrop.*
 import kotlinx.coroutines.*
-import kotlinx.coroutines.tasks.*
 import java.io.*
 import java.text.*
 import java.util.*
@@ -328,7 +329,7 @@ fun MainAppLayout(
                         }
                         Icon(
                             painter = painterResource(id = iconRes), // Replace with your drawable resource
-                            contentDescription = "Blueprint"
+                            contentDescription = "BlueprintData"
                         )
                     },
                     label = { Text("Blueprints") }
@@ -367,7 +368,6 @@ fun MainAppLayout(
             modifier = Modifier
                 .padding(innerPadding)
                 .fillMaxSize()
-                .padding(16.dp)
         ) {
             when (selectedTab) {
                 0 -> HomeContent(context, storagePermissionCode)
@@ -386,7 +386,7 @@ fun HomeContent(context: Context, storagePermissionCode: Int) {
     val database = FirebaseDatabase.getInstance()
 
     // Live data to hold the fetched blueprints
-    var blueprints by remember { mutableStateOf<List<Blueprint>>(emptyList()) }
+    var blueprintData by remember { mutableStateOf<List<BlueprintData>>(emptyList()) }
 
     // Fetch data from Firebase Realtime DatabaseManager when composable is first loaded
     LaunchedEffect(Unit) {
@@ -395,9 +395,9 @@ fun HomeContent(context: Context, storagePermissionCode: Int) {
         blueprintRef.get().addOnSuccessListener { snapshot ->
             if (snapshot.exists()) {
                 // Assuming the data is structured as a map of items
-                val blueprintList =
-                    snapshot.children.mapNotNull { it.getValue(Blueprint::class.java) }
-                blueprints = blueprintList.reversed()
+                val blueprintDataList =
+                    snapshot.children.mapNotNull { it.getValue(BlueprintData::class.java) }
+                blueprintData = blueprintDataList.reversed()
             }
         }.addOnFailureListener {
             // Handle errors
@@ -408,6 +408,7 @@ fun HomeContent(context: Context, storagePermissionCode: Int) {
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
+            .padding(16.dp)
     ) {
         // Header and See More Button
         Row(
@@ -441,108 +442,17 @@ fun HomeContent(context: Context, storagePermissionCode: Int) {
                 .horizontalScroll(rememberScrollState())
 
         ) {
-            val itemsToShow = if (showAllItems) blueprints else blueprints.take(10)
+            val itemsToShow = if (showAllItems) blueprintData else blueprintData.take(10)
 
             itemsToShow.forEach { blueprint ->
-                Box(
+                LoadBlueprintDesign(
+                    blueprint,
                     modifier = Modifier
-                        .padding(horizontal = 8.dp)
-                        .width(200.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .animateContentSize()
-                            .background(colorScheme.surfaceContainerLow)
-                            .clickable {
-                                val intent = Intent(context, ViewPostActivity::class.java)
-                                intent.putExtra("key", blueprint.key)
-                                intent.putExtra("data", blueprint)
-                                context.startActivity(intent)
-                            }
-                    ) {
-                        // Image on top
-                        Image(
-                            painter = rememberAsyncImagePainter(blueprint.image_url),
-                            contentDescription = null,
-                            modifier = Modifier
-                                .padding(bottom = 8.dp)
-                                .height(120.dp)
-                                .fillMaxWidth(),
-                            contentScale = ContentScale.Crop
-                        )
-                        Text(
-                            modifier = Modifier.padding(start = 8.dp),
-                            text = blueprint.name,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = colorScheme.onSurface,
-                        )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        val result = remember(blueprint.author) {
-                            mutableStateOf<Result<Map<String, Any>?>>(Result.success(null))
-                        }
-
-                        LaunchedEffect(blueprint.author) {
-                            try {
-                                val snapshot = FirebaseDatabase.getInstance()
-                                    .getReference("userdata")
-                                    .child(blueprint.author)
-                                    .get()
-                                    .await()
-
-                                if (snapshot.exists()) {
-                                    @Suppress("UNCHECKED_CAST")
-                                    val data = snapshot.value as? Map<String, Any>
-                                    result.value = Result.success(data)
-                                } else {
-                                    result.value = Result.success(null) // No data found
-                                }
-                            } catch (e: Exception) {
-                                result.value = Result.failure(e)
-                            }
-                        }
-
-                        result.value.onSuccess { data ->
-                            val profileImageUrl = data?.get("profile") as? String
-                            val authorName = data?.get("username") as? String
-
-                            if (profileImageUrl != null && authorName != null) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    modifier = Modifier.padding(8.dp)
-                                ) {
-                                    // User Profile Image in Circle
-                                    Image(
-                                        painter = rememberAsyncImagePainter(profileImageUrl),
-                                        contentDescription = null,
-                                        modifier = Modifier
-                                            .size(40.dp)
-                                            .clip(CircleShape),
-                                        contentScale = ContentScale.Crop
-                                    )
-
-                                    // Author Name Text
-                                    Text(
-                                        text = authorName,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = colorScheme.onSurface
-                                    )
-                                }
-                            }
-                        }.onFailure {
-                            Text(
-                                modifier = Modifier.padding(horizontal = 8.dp),
-                                text = "Error loading author data",
-                                color = colorScheme.error
-                            )
-                        }
-
-                    }
-                }
-                Spacer(modifier = Modifier.height(8.dp))
+                    .padding(horizontal = 8.dp)
+                    .width(200.dp)
+                    .clip(RoundedCornerShape(16.dp)),
+                    showAuthor = true
+                )
             }
         }
     }
@@ -573,48 +483,34 @@ fun HomeContent(context: Context, storagePermissionCode: Int) {
 @SuppressLint("CoroutineCreationDuringComposition")
 @Composable
 fun EditContent(context: Context, snackbarHostState: SnackbarHostState) {
-    var library by remember { mutableStateOf<List<LibraryEntry>>(emptyList()) }
+
+    val tabTitles = listOf("Downloads", "SFS BP")
+    var selectedTabIndex by remember { mutableIntStateOf(0) }
 
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Text(
-            text = "Blueprints",
-            color = colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier
-                .padding(bottom = 8.dp)
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-        ) {
-            LaunchedEffect(Unit) {
-                val result = loadUserLibrary(context)
-
-                if (result.isSuccess) {
-                    val data = result.getOrDefault(emptyMap())
-                    library = data.values.sortedByDescending { it.timestamp }
-                } else {
-                    val error = result.exceptionOrNull()?.message ?: "Unknown error"
-                    snackbarHostState.showSnackbar("Error: $error")
-                }
-            }
-
-            // Handle empty library state
-            if (library.isEmpty()) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("No blueprints in your library yet.")
-                }
-            } else {
-                LibraryList(
-                    library = library,
+        PrimaryTabRow(selectedTabIndex = selectedTabIndex) {
+            tabTitles.forEachIndexed { index, title ->
+                Tab(
+                    selected = selectedTabIndex == index,
+                    onClick = { selectedTabIndex = index },
+                    text = {
+                        Text(
+                            text = title,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 )
+            }
+        }
+        Box(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            when (selectedTabIndex) {
+                0 -> DownloadContent(context, snackbarHostState)
+                1 -> GameFileContent(context, snackbarHostState)
             }
         }
     }
@@ -623,7 +519,9 @@ fun EditContent(context: Context, snackbarHostState: SnackbarHostState) {
 @Composable
 fun NewsContent() {
     Box(
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
     ) {
         Column(
             modifier = Modifier
@@ -639,6 +537,59 @@ fun NewsContent() {
     }
 }
 
+@Composable
+fun DownloadContent(context: Context, snackbarHostState: SnackbarHostState) {
+    var library by remember { mutableStateOf<List<LibraryEntry>>(emptyList()) }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+    ) {
+        LaunchedEffect(Unit) {
+            val result = loadUserLibrary(context)
+
+            if (result.isSuccess) {
+                val data = result.getOrDefault(emptyMap())
+                library = data.values.sortedByDescending { it.timestamp }
+            } else {
+                val error = result.exceptionOrNull()?.message ?: "Unknown error"
+                snackbarHostState.showSnackbar("Error: $error")
+            }
+        }
+
+        // Handle empty library state
+        if (library.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("No blueprints in your library yet.")
+            }
+        } else {
+            LibraryList(
+                library = library,
+            )
+        }
+    }
+}
+
+@Composable
+fun GameFileContent(context: Context, snackbarHostState: SnackbarHostState) {
+    /* RequestStorageAccess { pickedDir ->
+        // You now have access to the Blueprints folder
+        pickedDir.listFiles().forEach { folder ->
+            val blueprintJson = folder.findFile("blueprint.json")
+            val json = blueprintJson?.uri?.let { uri ->
+                val stream = context.contentResolver.openInputStream(uri)
+                stream?.bufferedReader()?.use { it.readText() }
+            }
+
+            Log.d("Blueprint", json ?: "Empty")
+        }
+    }
+    */
+    BlueprintFolderAccess()
+}
 
 @SuppressLint("QueryPermissionsNeeded")
 private fun openSettings(activity: Activity) {
@@ -679,6 +630,17 @@ fun ProfileBottomSheetContent(
 ) {
     val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current
+    var userData by remember { mutableStateOf<UserData?>(null) }
+    val user = FirebaseAuth.getInstance().currentUser
+    val uid = user?.uid
+
+    LaunchedEffect(uid) {
+        if (uid != null) {
+            val fetchedUser = getUserByUid(uid)
+            userData = fetchedUser
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -687,13 +649,18 @@ fun ProfileBottomSheetContent(
         Row(
             verticalAlignment = Alignment.CenterVertically
         ) {
-            val user = FirebaseAuth.getInstance().currentUser
+
 
             IconButton(onClick = {
                 if (user != null) {
-                    TODO()
+                    val intent = Intent(context, ViewUserActivity::class.java)
+                    intent.putExtra("key", uid)
+                    intent.putExtra("data", userData)
+                    context.startActivity(intent)
                 } else {
-                    TODO()
+                    val intent = Intent(context, LoginActivity::class.java)
+                    context.startActivity(intent)
+                    (context as Activity).finish()
                 }
             }) {
                 if (user?.photoUrl != null) {
@@ -995,7 +962,7 @@ fun uploadProfilePictureToFirebase(
             }
             .addOnFailureListener { onFailure(it) }
     } else {
-        onFailure(Exception("User not logged in!"))
+        onFailure(Exception("UserData not logged in!"))
     }
 }
 
@@ -1131,7 +1098,7 @@ fun LibraryEntryItem(
                             Text("Download")
                         }
                         SimpleAlertDialog(
-                            title = "No Blueprint Found",
+                            title = "No BlueprintData Found",
                             text = "The original blueprint could not be found. It may have been deleted, moved or relocated.",
                             confirmText = "OK",
                             showDialog = showDialog,

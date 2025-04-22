@@ -22,6 +22,12 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.SFlightX"
         tools:targetApi="31">
+        <activity
+            android:name=".ViewUserActivity"
+            android:exported="false"
+            android:label="@string/title_activity_view_user"
+            android:theme="@style/Theme.SFlightX" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -31,6 +37,7 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
         <activity
             android:name=".UpdateActivity"
             android:exported="false"

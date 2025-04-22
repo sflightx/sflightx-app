@@ -11,16 +11,28 @@ data class LibraryEntry(
     val name: String,
     val timestamp: Long = System.currentTimeMillis()
 )
-data class UserData(
+
+data class BlueprintData(
     val name: String = "",
-    val profileImage: String = ""
-)
-data class User(
+    val desc: String = "",
+    val file_link: String = "",
+    val image_url: String = "",
+    val author: String = "",
+    val key: String = "",
+    val req_type: String = "",
+    val req_game: String = "",
+    val downloads: Long = 0,
+    val rating: Double = 0.0
+) : Serializable
+
+data class UserData(
     val profile: String? = null,
     val username: String? = null,
     val email: String? = null,
-    val uid: String? = null
-)
+    val uid: String? = null,
+    val bio: String? = null
+) : Serializable
+
 data class Comment(
     val author: String = "",
     var username: String = "",
@@ -34,17 +46,6 @@ data class InAppNotification(
     val timestamp: Long = 0,
     val visible: Boolean = false
 )
-data class Blueprint(
-    val name: String = "",
-    val file_link: String = "",
-    val image_url: String = "",
-    val author: String = "",
-    val key: String = "",
-    val req_type: String = "",
-    val req_game: String = "",
-    val downloads: Long = 0,
-    val rating: Double = 0.0
-) : Serializable
 
 data class AppSettings(
     val title: String,

@@ -11,4 +11,5 @@
     <string name="title_activity_error">ErrorActivity</string>
     <string name="title_activity_my_application">MyApplication</string>
     <string name="title_activity_update">UpdateActivity</string>
+    <string name="title_activity_view_user">ViewUserActivity</string>
 </resources>
