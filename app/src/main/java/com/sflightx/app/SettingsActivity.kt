@@ -7,7 +7,6 @@ import android.graphics.Color
 import android.net.*
 import android.os.*
 import android.provider.*
-import android.util.*
 import android.view.*
 import android.webkit.*
 import android.widget.*
@@ -28,15 +27,19 @@ import androidx.compose.ui.input.nestedscroll.*
 import androidx.compose.ui.layout.*
 import androidx.compose.ui.platform.*
 import androidx.compose.ui.res.*
-import androidx.compose.ui.text.font.*
 import androidx.compose.ui.unit.*
 import androidx.compose.ui.viewinterop.*
-import androidx.core.content.pm.*
 import androidx.core.net.*
 import androidx.core.view.*
 import com.google.accompanist.systemuicontroller.*
 import com.google.firebase.database.*
 import com.sflightx.app.bottomsheet.*
+import com.sflightx.app.`class`.AppSettings
+import com.sflightx.app.`class`.DialogState
+import com.sflightx.app.`class`.DialogType
+import com.sflightx.app.`class`.SettingItem
+import com.sflightx.app.`class`.SettingType
+import com.sflightx.app.`class`.ThemeMode
 import com.sflightx.app.ui.theme.*
 
 
@@ -228,6 +231,16 @@ fun MainSettingsScreen(
                         )
                     },
                     dialogState = dialogState
+                ),
+                SettingItem(
+                    name = "Theme",
+                    description = "Enable dark mode or follow system settings.",
+                    iconResId = R.drawable.edit_24px,
+                    type = SettingType.SWITCH,
+                    defaultValue = materialYouState,
+                    onValueChanged = { isEnabled ->
+                        themePreferences.saveMaterialYouEnabled(isEnabled)
+                    }
                 )
             )
         ),
@@ -383,59 +396,6 @@ fun SubcategoryScreen(
     }
 }
 
-
-@Composable
-fun CheckUpdates(onDismiss: () -> Unit) {
-    val context = LocalContext.current
-    val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-
-    val versionCode = PackageInfoCompat.getLongVersionCode(packageInfo)
-    val versionName = packageInfo.versionName
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = "SFlightX App",
-            style = MaterialTheme.typography.headlineLarge,
-            fontWeight = FontWeight.Bold
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center
-        ) {
-            Text("Version: $versionName", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(modifier = Modifier.width(4.dp))
-            Text("($versionCode)", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-
-        Spacer(modifier = Modifier.height(48.dp))
-
-        VersionCheckIndicator(
-            context = context,
-            onUpdateNeeded = { latestVersion, updateUrl, changelog ->
-                // Optionally handle update button pressed
-            },
-            onDismiss = onDismiss
-        )
-
-        Spacer(modifier = Modifier.weight(1f))
-
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-        )
-    }
-}
-
-
 @Composable
 fun SettingListItem(
     item: SettingItem,
@@ -548,8 +508,10 @@ fun RefinedShowDialog(
         title = { Text(title) },
         text = {
             Column {
-                Text(message)
-                Spacer(Modifier.height(8.dp))
+                if (message.isNotBlank()) {
+                    Text(message)
+                    Spacer(Modifier.height(8.dp))
+                }
                 when (type) {
                     DialogType.SWITCH -> {
                         Row(
@@ -564,6 +526,7 @@ fun RefinedShowDialog(
                             )
                         }
                     }
+
                     DialogType.TEXT_INPUT -> {
                         OutlinedTextField(
                             value = dialogState.inputText.value,
@@ -572,6 +535,26 @@ fun RefinedShowDialog(
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
+
+                    DialogType.SELECTION -> {
+                        ThemeMode.values().forEach { mode ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {}
+                                    .padding(vertical = 8.dp)
+                            ) {
+                                RadioButton(
+                                    selected = true,
+                                    onClick = {}
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(mode.name.lowercase().replaceFirstChar { it.uppercase() })
+                            }
+                        }
+                    }
+
                     else -> {}
                 }
             }

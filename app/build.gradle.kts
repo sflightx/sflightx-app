@@ -12,12 +12,12 @@ android {
 
     defaultConfig {
         applicationId = "com.sflightx.app"
-        minSdk = 23
+        minSdk = 26
         //noinspection OldTargetApi
         targetSdk = 34
         multiDexEnabled = true
         versionCode = 3
-        versionName = "0.01"
+        versionName = "0.02"
     }
 
     signingConfigs {
@@ -74,6 +74,9 @@ dependencies {
     implementation(libs.androidx.browser)
     implementation(libs.gson)
     implementation(libs.okhttp)
+    implementation(libs.material3)
+    implementation(libs.androidx.material3.v140alpha15)
+    implementation(libs.accompanist.placeholder.material)
 
 
     implementation(project(":ImageCrop"))

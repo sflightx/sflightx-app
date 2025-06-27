@@ -3,22 +3,18 @@
 package com.sflightx.app
 
 import android.app.*
-import android.content.*
 import android.os.*
 import androidx.activity.*
 import androidx.activity.compose.*
-import androidx.compose.animation.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.shape.*
 import androidx.compose.material3.*
-import androidx.compose.material3.MaterialTheme.colorScheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.draw.*
 import androidx.compose.ui.input.nestedscroll.*
-import androidx.compose.ui.layout.*
 import androidx.compose.ui.platform.*
 import androidx.compose.ui.res.*
 import androidx.compose.ui.text.*
@@ -27,9 +23,10 @@ import androidx.compose.ui.unit.*
 import coil.compose.*
 import com.google.firebase.database.*
 import com.sflightx.app.ui.theme.*
-import kotlinx.coroutines.tasks.*
 import android.util.Log
 import androidx.compose.ui.Modifier
+import com.sflightx.app.`class`.BlueprintData
+import com.sflightx.app.`class`.UserData
 import com.sflightx.app.layout.LoadBlueprintDesign
 
 

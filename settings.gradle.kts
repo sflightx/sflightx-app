@@ -17,6 +17,7 @@ pluginManagement {
             }
         }
         maven("https://jitpack.io")
+        google()
         mavenCentral()
         gradlePluginPortal()
         //noinspection JcenterRepositoryObsolete

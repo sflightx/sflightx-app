@@ -9,28 +9,47 @@ import android.widget.*
 import androidx.activity.*
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.*
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.*
 import androidx.compose.ui.platform.*
 import androidx.compose.ui.res.*
 import androidx.compose.ui.text.font.*
 import androidx.compose.ui.unit.*
 import androidx.core.app.*
 import androidx.core.content.*
+import com.sflightx.app.animation.*
 import com.sflightx.app.ui.theme.*
+
 
 @Suppress("DEPRECATION")
 class FirstBootActivity : ComponentActivity() {
     private val storagePermissionCode = 101
+    @OptIn(ExperimentalMaterial3ExpressiveApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             SFlightXTheme {
-                FirstBootAppLayout(requestStoragePermission = ::requestStoragePermission)
+                AnimatedGradientBackground (
+                    modifier = Modifier.background(MaterialTheme.colorScheme.background)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        FirstBootAppLayout(requestStoragePermission = ::requestStoragePermission)
+                    }
+                }
             }
         }
     }
@@ -60,13 +79,20 @@ class FirstBootActivity : ComponentActivity() {
     }
 }
 
+@ExperimentalMaterial3ExpressiveApi
 @Composable
 fun FirstBootAppLayout(requestStoragePermission: () -> Unit) {
     var currentProgress by remember { mutableFloatStateOf(0f) }
     var selectedTab by remember { mutableIntStateOf(0) }
     val context = LocalContext.current
     currentProgress = (selectedTab.toFloat() + 1) / 3
+    val animatedProgress by animateFloatAsState(
+        targetValue = currentProgress,
+        animationSpec = spring(dampingRatio = 0.4f, stiffness = 800f),
+        label = "ProgressAnimation"
+    )
     Scaffold(
+        containerColor = Color.Transparent,
         bottomBar = {
             BottomAppBar(
                 actions = {
@@ -85,9 +111,18 @@ fun FirstBootAppLayout(requestStoragePermission: () -> Unit) {
                         )
 
                     }
-                    LinearProgressIndicator(
-                        progress = { currentProgress },
+
+                    LinearWavyProgressIndicator(
+                        progress = { animatedProgress }, // Lambda for determinate progress
                         modifier = Modifier.padding(8.dp).weight(1f),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                        stroke = WavyProgressIndicatorDefaults.linearIndicatorStroke,
+                        trackStroke = WavyProgressIndicatorDefaults.linearTrackStroke,
+                        gapSize = WavyProgressIndicatorDefaults.LinearIndicatorTrackGapSize,
+                        amplitude = WavyProgressIndicatorDefaults.indicatorAmplitude,
+                        wavelength = WavyProgressIndicatorDefaults.LinearDeterminateWavelength,
+                        waveSpeed = 40.dp
                     )
 
                     FilledTonalButton(onClick = {
@@ -145,11 +180,12 @@ fun TabContent1() {
             Text(
                 text = "Welcome!",
                 style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = (MaterialTheme.typography.titleLarge.fontSize.value * 3f).sp,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
             Text(
-                text = "The new sFlightX App is here, with new modern features.",
+                text = "The new SFlightX App is here, with new modern features.",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -165,37 +201,51 @@ fun TabContent2(requestStoragePermission: () -> Unit) {
     if (stateGranted) {
         requestStoragePermission()
     }
+
     Box (
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ){
-        Column (
-            modifier = Modifier.padding(8.dp)
-        ) {
+        Column {
             Text(
                 "Required Permissions",
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(bottom = 8.dp)
+                style = MaterialTheme.typography.headlineLarge,
+                modifier = Modifier.padding(bottom = 8.dp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
-                "The app uses READ_EXTERNAL_STORAGE permission to function properly.",
+                "The app uses the following permissions to function properly.",
                 style = MaterialTheme.typography.titleSmall,
-                modifier = Modifier.padding(bottom = 8.dp)
+                modifier = Modifier.padding(bottom = 8.dp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
 
             )
-            OutlinedButton(onClick = {
-                requestStoragePermission()
-            },
-                modifier = Modifier.padding(bottom = 8.dp)) {
-                Text("Grant Permissions")
+            Surface (
+                modifier = Modifier
+                    .fillMaxWidth().padding(top = 16.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                color = Color.Transparent,
+                shape = MaterialTheme.shapes.large
+            ) {
+                var checked by remember { mutableStateOf(true) }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(8.dp)
+                ) {
+                    Text(
+                        "READ_EXTERNAL_STORAGE permission",
+                        modifier = Modifier.padding(start = 8.dp).weight(1f),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Checkbox(
+                        checked = checked,
+                        onCheckedChange = {
+                            checked = it
+                            requestStoragePermission()
+                        }
+                    )
+                }
             }
-            Text(
-                "Click next to skip, you can set up later.",
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.padding(bottom = 8.dp)
-
-            )
         }
     }
 }
@@ -213,16 +263,16 @@ fun TabContent3() {
         item {
             Text(
                 "New Features",
-                style = MaterialTheme.typography.titleLarge,
-                fontSize = (MaterialTheme.typography.titleLarge.fontSize.value * 1.5f).sp,
-                modifier = Modifier.padding(bottom = 24.dp)
+                style = MaterialTheme.typography.headlineLarge,
+                modifier = Modifier.padding(bottom = 24.dp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
 
         item {
             Card(
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                    containerColor = Color.Transparent,
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -242,11 +292,6 @@ fun TabContent3() {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
-                    FilledTonalButton(onClick = {
-                        Toast.makeText(context, "App hasn't booted before", Toast.LENGTH_SHORT).show()
-                    }) {
-                        Text("Set Theme")
-                    }
                 }
             }
         }
@@ -254,7 +299,7 @@ fun TabContent3() {
         item {
             Card(
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                    containerColor = Color.Transparent,
                 ),
                 modifier = Modifier
                     .fillMaxWidth()

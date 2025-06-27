@@ -10,14 +10,15 @@ import androidx.activity.*
 import androidx.activity.compose.*
 import androidx.browser.customtabs.*
 import androidx.compose.animation.*
-import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.shape.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.*
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.input.nestedscroll.*
@@ -30,16 +31,23 @@ import androidx.compose.ui.unit.*
 import androidx.core.net.*
 import coil.compose.*
 import com.google.android.gms.tasks.*
-import com.google.firebase.auth.*
 import com.google.firebase.database.*
 import com.google.firebase.database.ktx.*
 import com.google.firebase.ktx.*
 import com.google.gson.*
 import com.google.gson.reflect.*
+import com.sflightx.app.bottomsheet.CommentSection
+import com.sflightx.app.bottomsheet.GlobalBottomSheetHost
+import com.sflightx.app.bottomsheet.LocalBottomSheetController
+import com.sflightx.app.`class`.BlueprintData
+import com.sflightx.app.`class`.Comment
+import com.sflightx.app.`class`.LibraryEntry
+import com.sflightx.app.`class`.UserData
 import com.sflightx.app.task.getUserByUid
 import com.sflightx.app.ui.theme.*
 import kotlinx.coroutines.*
 import java.io.*
+
 
 
 @Suppress("DEPRECATION")
@@ -52,7 +60,10 @@ class ViewPostActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             SFlightXTheme {
-                ViewPostLayout(key, data)
+                GlobalBottomSheetHost {
+                    ViewPostLayout(key, data)
+                }
+
             }
         }
     }
@@ -65,10 +76,8 @@ fun ViewPostLayout(key: String, data: BlueprintData?) {
     val activity = context as? Activity
     val snackbarHostState = remember { SnackbarHostState() }
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-
-    val showBottomBar by remember {
-        derivedStateOf { scrollBehavior.state.collapsedFraction > 0f }
-    }
+    val collapsedFraction = scrollBehavior.state.collapsedFraction
+    val scrollState = rememberLazyListState()
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -79,7 +88,8 @@ fun ViewPostLayout(key: String, data: BlueprintData?) {
                     Text(
                         text = data?.name ?: "Unnamed Post",
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        fontSize = (38 - 16 * collapsedFraction).sp,
                     )
                 },
                 navigationIcon = {
@@ -95,7 +105,10 @@ fun ViewPostLayout(key: String, data: BlueprintData?) {
                         val url = "https://sflightx.com/bp/$key"
                         shareBlueprint(context, url)
                     }) {
-                        Icon(painter = painterResource(id = R.drawable.share_24px), contentDescription = "Share")
+                        Icon(
+                            painter = painterResource(id = R.drawable.share_24px),
+                            contentDescription = "Share"
+                        )
                     }
                 },
                 scrollBehavior = scrollBehavior,
@@ -106,30 +119,31 @@ fun ViewPostLayout(key: String, data: BlueprintData?) {
             )
         },
         bottomBar = {
-            if (showBottomBar) {
-                BottomAppBar {
-                    OpenLinkButton(
-                        key = data?.file_link ?: "null",
-                        postKey = data?.key ?: "null",
-                        name = data?.name ?: "null",
-                        onClick = {},
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                        snackbarHostState = snackbarHostState
-                    )
-                }
+            BottomAppBar {
+                OpenLinkButton(
+                    key = data?.file_link ?: "null",
+                    postKey = data?.key ?: "null",
+                    name = data?.name ?: "null",
+                    onClick = {},
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    snackbarHostState = snackbarHostState
+                )
             }
         }
     ) { paddingValues ->
-        LazyColumn(
+        Box(
             modifier = Modifier
                 .padding(paddingValues)
-                .padding(16.dp)
-                .fillMaxSize()
         ) {
-            item {
-                DetailsLayout(data, scrollBehavior, snackbarHostState)
+            LazyColumn(
+                modifier = Modifier.fillMaxHeight(),  // Use fillMaxHeight() instead of fillMaxSize() to avoid infinite height
+                state = scrollState
+            ) {
+                item {
+                    DetailsLayout(data, snackbarHostState, scrollState)
+                }
             }
         }
     }
@@ -138,19 +152,14 @@ fun ViewPostLayout(key: String, data: BlueprintData?) {
 @SuppressLint("AutoboxingStateCreation")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DetailsLayout(blueprintData: BlueprintData?, scrollBehavior: TopAppBarScrollBehavior, snackbarHostState: SnackbarHostState) {
+fun DetailsLayout(blueprintData: BlueprintData?, snackbarHostState: SnackbarHostState, scrollState: LazyListState) {
     val painter = rememberAsyncImagePainter(blueprintData?.image_url)
-    val collapsedFraction = scrollBehavior.state.collapsedFraction
     var imageHeight by remember { mutableIntStateOf(250) }
-    // Animate alpha based on scroll
 
     Column {
-        PosterInfo(blueprintData, collapsedFraction, snackbarHostState)
-        FileInfo(blueprintData)
         Box(
             modifier = Modifier
-                .padding(bottom = 16.dp)
-                .fillMaxWidth()
+                .padding(16.dp)
                 .clip(RoundedCornerShape(16.dp))
                 .background(MaterialTheme.colorScheme.surfaceContainerLow)
                 .animateContentSize()
@@ -168,7 +177,11 @@ fun DetailsLayout(blueprintData: BlueprintData?, scrollBehavior: TopAppBarScroll
                 modifier = Modifier.fillMaxWidth()
             ) {
                 IconButton(onClick = {
-                    imageHeight = if (imageHeight == 250) { 750 } else { 250 }
+                    imageHeight = if (imageHeight == 250) {
+                        750
+                    } else {
+                        250
+                    }
                 }) {
                     Icon(
                         painter = painterResource(if (imageHeight == 250) R.drawable.expand_content_24px else R.drawable.collapse_content_24px),
@@ -180,28 +193,27 @@ fun DetailsLayout(blueprintData: BlueprintData?, scrollBehavior: TopAppBarScroll
             }
 
         }
-        RatingInfo()
-        CommentInfo(blueprintData, snackbarHostState)
+        AuthorInfo(blueprintData)
+        FileInfo(blueprintData)
+        //RatingInfo(blueprintData)
+        CommentInfo(blueprintData, snackbarHostState, scrollState)
     }
 }
 
 @Composable
 fun FileInfo(blueprintData: BlueprintData?) {
-    Box (
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(bottom = 16.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerLow)
     ) {
-        Row (
+        Row(
             modifier = Modifier
                 .padding(16.dp)
-                .fillMaxWidth(),
+                .fillMaxWidth()
         ) {
-            Column (
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.weight(1f)
+            Column(
+                modifier = Modifier.weight(1f),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Icon(
                     painter = painterResource(id = R.drawable.download_24px),
@@ -212,10 +224,10 @@ fun FileInfo(blueprintData: BlueprintData?) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(blueprintData?.downloads.toString())
             }
-            VerticalDivider(modifier = Modifier.fillMaxHeight(1f), thickness = 1.dp)
-            Column (
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.weight(1f)
+            VerticalDivider(thickness = 1.dp)
+            Column(
+                modifier = Modifier.weight(1f),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Icon(
                     painter = painterResource(id = R.drawable.star_24px),
@@ -224,12 +236,12 @@ fun FileInfo(blueprintData: BlueprintData?) {
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(4.dp))
-                Text("%.1f".format(blueprintData?.rating ?: 0.0))
+                Text(/*"%.1f".format(blueprintData?.rating ?: 0.0)*/"N/A")
             }
-            VerticalDivider(modifier = Modifier.fillMaxHeight(1f), thickness = 1.dp)
-            Column (
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.weight(1f)
+            VerticalDivider(thickness = 1.dp)
+            Column(
+                modifier = Modifier.weight(1f),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Icon(
                     painter = painterResource(id = R.drawable.check_24px),
@@ -240,10 +252,10 @@ fun FileInfo(blueprintData: BlueprintData?) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(blueprintData?.req_type.toString())
             }
-            VerticalDivider(modifier = Modifier.fillMaxHeight(1f), thickness = 1.dp)
-            Column (
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.weight(1f)
+            VerticalDivider(thickness = 1.dp)
+            Column(
+                modifier = Modifier.weight(1f),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Icon(
                     painter = painterResource(id = R.drawable.info_24px),
@@ -259,161 +271,201 @@ fun FileInfo(blueprintData: BlueprintData?) {
 }
 
 @Composable
-fun RatingInfo() {
+fun RatingInfo(blueprintData: BlueprintData?) {
     val rating = remember { mutableIntStateOf(0) }
-    Box (
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(bottom = 16.dp)
-            .clip(RoundedCornerShape(16.dp))
+            .padding(horizontal = 16.dp)
+            .padding(vertical = 8.dp)
     ) {
-        Column (
-            modifier = Modifier
-                .padding(16.dp)
-                .fillMaxWidth()
+        Row(
+            modifier = Modifier.fillMaxWidth()
         ) {
             Text(
                 modifier = Modifier
                     .padding(bottom = 16.dp),
-                text = "Ratings",
-                style = MaterialTheme.typography.headlineSmall
+                text = "%.1f".format(blueprintData?.rating ?: 0.0),
+                style = MaterialTheme.typography.titleMedium
 
             )
-            RatingBar(rating = rating, modifier = Modifier.fillMaxWidth())
+            RatingBar(rating = rating, modifier = Modifier.weight(1f))
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CommentInfo(blueprintData: BlueprintData?, snackbarHostState: SnackbarHostState) {
+fun CommentInfo(blueprintData: BlueprintData?, snackbarHostState: SnackbarHostState, scrollState: LazyListState) {
+    val bottomSheetController = LocalBottomSheetController.current
     val comments = remember { mutableStateListOf<Comment>() }
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val postId = blueprintData?.key
     var isLoaded by remember { mutableStateOf(false) }
-    var text by remember { mutableStateOf("") }
-    var user = FirebaseAuth.getInstance().currentUser
+    var lastCommentKey: String? = null
 
     LaunchedEffect(postId) {
-        fetchCommentsForPost(
-            postId = postId.toString(),
-            onCommentsFetched = { commentsList ->
-                comments.clear()
-                comments.addAll(commentsList)
-                isLoaded = true
-            },
-            onError = { message ->
-                scope.launch {
-                    snackbarHostState.showSnackbar(message)
+        if (postId != null) {
+            fetchCommentsForPost(
+                isRecent = true,
+                postId = postId,
+                onCommentsFetched = { commentsList ->
+                    // Clear the existing list before adding new comments
+                    comments.clear()
+                    comments.addAll(commentsList.reversed())
+
+                    // Save the key of the last fetched comment for pagination
+                    if (comments.isNotEmpty()) {
+                        lastCommentKey =
+                            comments.last().key // Assuming 'key' is the unique identifier for each comment
+                    }
+                    isLoaded = true
+                },
+                onError = { message ->
+                    // Show error message using Snackbar
+                    scope.launch {
+                        snackbarHostState.showSnackbar(message)
+                    }
+                    isLoaded = true
                 }
-                isLoaded = true
-            }
-        )
+            )
+        }
     }
-    Box (
+
+    Box(
         modifier = Modifier
+            .padding(vertical = 24.dp)
             .fillMaxWidth()
-            .padding(bottom = 16.dp)
-            .clip(RoundedCornerShape(16.dp))
     ) {
-        Column (
+        Column(
             modifier = Modifier
-                .padding(16.dp)
                 .fillMaxWidth()
         ) {
-            Row {
+            Row (
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 16.dp)
+            ) {
                 Text(
                     modifier = Modifier
-                        .padding(bottom = 24.dp)
                         .weight(1f),
-                    text = "UserData Comments",
-                    style = MaterialTheme.typography.headlineSmall
+                    text = "Comments",
+                    style = MaterialTheme.typography.headlineMedium
+                )
+                Icon(
+                    painter = painterResource(id = R.drawable.arrow_forward_24px),
+                    contentDescription = "more",
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clickable {
+                            bottomSheetController.show {
+                                CommentSection(
+                                    key = postId,
+                                    onDismiss = { bottomSheetController.hide() },
+                                    snackbarHostState = snackbarHostState,
+                                    scrollState = scrollState
+                                )
+                            }
+                        },
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+
             if (!isLoaded) {
-                Column(Modifier
-                    .fillMaxWidth()
-                    .wrapContentWidth(Alignment.CenterHorizontally)
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .wrapContentWidth(Alignment.CenterHorizontally)
+                        .padding(24.dp)
                 ) {
                     Text("Loading comments...")
                 }
             } else if (comments.isEmpty()) {
-                Column(Modifier
-                    .fillMaxWidth()
-                    .wrapContentWidth(Alignment.CenterHorizontally)
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .wrapContentWidth(Alignment.CenterHorizontally)
+                        .padding(24.dp)
                 ) {
                     Text("No Comments")
                 }
             } else {
-                comments.forEach { comment ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp), // Consistent vertical padding
-                        verticalAlignment = Alignment.CenterVertically // Align text and profile picture in the center
-                    ) {
-                        // Profile picture (optional)
-                        // You could use a profile picture here
-                        Image(
-                            painter = rememberAsyncImagePainter(comment.profilePictureUrl), // Load the profile picture
-                            contentDescription = "Profile Picture",
-                            modifier = Modifier
-                                .size(24.dp) // Adjust size of profile picture
-                                .clip(CircleShape) // Make it circular
-                        )
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp) // Space between items in the column
+                ) {
+                    // Loop through each comment and display
+                    comments.forEach { comment ->
+                        Column {
+                            Column (
+                                modifier = Modifier.padding(vertical = 4.dp).padding(horizontal = 24.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(bottom = 4.dp), // Consistent vertical padding
+                                    verticalAlignment = Alignment.CenterVertically // Align text and profile picture in the center
+                                ) {
+                                    // Profile picture (optional)
+                                    Image(
+                                        painter = rememberAsyncImagePainter(comment.profilePictureUrl), // Load the profile picture
+                                        contentDescription = "Profile Picture",
+                                        modifier = Modifier
+                                            .size(32.dp) // Adjust size of profile picture
+                                            .clip(CircleShape) // Make it circular
+                                    )
 
-                        Spacer(modifier = Modifier.width(8.dp)) // Spacing between the image and the text
+                                    Spacer(modifier = Modifier.width(8.dp)) // Spacing between the image and the text
 
-                        // Author's name
-                        Text(
-                            text = comment.username,
-                            modifier = Modifier.padding(end = 4.dp),
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold // Bold the author's name
-                        )
-
-                        // Comment message
-                        Text(
-                            text = comment.message,
-                            modifier = Modifier.padding(start = 4.dp),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                                    // Author's name
+                                    Text(
+                                        text = comment.username,
+                                        modifier = Modifier.padding(end = 4.dp),
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold // Bold the author's name
+                                    )
+                                }
+                                Text(
+                                    text = comment.message,
+                                    modifier = Modifier.padding(start = 4.dp).padding(top = 4.dp),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Row (
+                                    modifier = Modifier
+                                        .padding(horizontal = 4.dp)
+                                        .fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.End
+                                ) {
+                                    Box {
+                                        VoteElement(
+                                            modifier = Modifier
+                                                .padding(0.dp)
+                                                .background(Color.LightGray, RoundedCornerShape(8.dp))
+                                        )
+                                    }
+                                }
+                            }
+                            HorizontalDivider(Modifier.padding(top = 16.dp), 2.dp)
+                        }
                     }
                 }
             }
-            CommentInputWithSend(
-                text = text,
-                onTextChange = { newText -> text = newText },
-                onSendClick = { message ->
-                    if (user == null) {
-                        context.startActivity(Intent(context, LoginActivity::class.java))
-                    }
-                    println("Message sent: $message")
-                    text = "" // Optionally clear the input after sending
-                }
+            Text(
+                text = "Loading the first 5 comments.",
+                modifier = Modifier.padding(16.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
 }
 
 @Composable
-fun PosterInfo(blueprintData: BlueprintData?, collapsedFraction: Float, snackbarHostState: SnackbarHostState) {
-    val context = LocalContext.current
-    val activity = context as? Activity
+fun AuthorInfo(blueprintData: BlueprintData?) {
     var userData by remember { mutableStateOf<UserData?>(null) }
-    val showButton = collapsedFraction < 1f
-    val scale by animateFloatAsState(
-        targetValue = if (showButton) 1f else 0.95f,
-        animationSpec = tween(300),
-        label = "Scale"
-    )
-
-    val alphaCol by animateFloatAsState(
-        targetValue = if (showButton) 1f else 0.85f,
-        animationSpec = tween(300),
-        label = "AlphaColumn"
-    )
+    val context = LocalContext.current
 
     LaunchedEffect(blueprintData?.author) {
         if (blueprintData?.author != null) {
@@ -424,19 +476,11 @@ fun PosterInfo(blueprintData: BlueprintData?, collapsedFraction: Float, snackbar
 
     Column(
         modifier = Modifier
-            .fillMaxWidth()
-            .padding(bottom = 16.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerLow)
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-                alpha = alphaCol
-            }
-            .animateContentSize(animationSpec = tween(300))
+            .padding(horizontal = 16.dp)
+            .padding(vertical = 8.dp)
     ) {
         Row(
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier.padding(8.dp)
         ) {
             if (!userData?.profile.isNullOrEmpty()) {
                 AsyncImage(
@@ -455,17 +499,20 @@ fun PosterInfo(blueprintData: BlueprintData?, collapsedFraction: Float, snackbar
                 )
             }
             Spacer(modifier = Modifier.width(24.dp))
-            Text(
-                text = userData?.username ?: "Unknown UserData",
-                style = MaterialTheme.typography.titleLarge
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = userData?.username ?: "Unknown UserData",
+                    style = MaterialTheme.typography.titleLarge
+                )
+            }
         }
-
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp)
-                .padding(bottom = 8.dp),
+                .padding(vertical = 8.dp),
         ) {
             OutlinedButton(
                 onClick = {}
@@ -494,7 +541,7 @@ fun PosterInfo(blueprintData: BlueprintData?, collapsedFraction: Float, snackbar
                     context.startActivity(intent)
                 }
             ) {
-                Row(
+                Row (
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
@@ -509,37 +556,15 @@ fun PosterInfo(blueprintData: BlueprintData?, collapsedFraction: Float, snackbar
                 }
             }
         }
-
-        AnimatedContent(
-            targetState = showButton,
-            transitionSpec = {
-                fadeIn(tween(300)) togetherWith fadeOut(tween(300))
-            },
-            label = "DownloadButtonAnimation"
-        ) { visible ->
-            if (visible) {
-                OpenLinkButton(
-                    key = blueprintData?.file_link ?: "null",
-                    postKey = blueprintData?.key ?: "null",
-                    name = blueprintData?.name ?: "null",
-                    snackbarHostState = snackbarHostState,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
-                        .padding(bottom = 8.dp),
-                )
-            } else {
-                Spacer(modifier = Modifier.height(0.dp)) // Keeps animation smooth
-            }
-        }
     }
 }
 
-
 fun fetchCommentsForPost(
+    isRecent: Boolean = false,
     postId: String,
     onCommentsFetched: (List<Comment>) -> Unit,
-    onError: (String) -> Unit
+    onError: (String) -> Unit,
+    lastCommentKey: String? = null // For pagination, pass the last comment key
 ) {
     val ref = FirebaseDatabase.getInstance().reference
         .child("comment")
@@ -547,35 +572,41 @@ fun fetchCommentsForPost(
         .child("blueprint")
         .child(postId)
 
-    ref.addListenerForSingleValueEvent(object : ValueEventListener {
+    var query = ref.orderByKey()
+
+    when {
+        isRecent -> {
+            query = query.limitToLast(5)
+        }
+        lastCommentKey != null -> {
+            query = query.endBefore(lastCommentKey).limitToLast(5)
+        }
+        else -> {
+        }
+    }
+
+    query.addListenerForSingleValueEvent(object : ValueEventListener {
         override fun onDataChange(snapshot: DataSnapshot) {
             if (!snapshot.exists() || snapshot.childrenCount == 0L) {
                 onCommentsFetched(emptyList())
                 return
             }
 
-            // Collect all unique UIDs (authors)
+            // Collect comments and unique UIDs
             val uids = mutableSetOf<String>()
             val comments = mutableListOf<Comment>()
+            comments.clear()
 
             snapshot.children.forEach { commentSnapshot ->
                 val comment = commentSnapshot.getValue(Comment::class.java)
                 comment?.let {
-                    uids.add(it.author) // Collect UID from the author field
-                    comments.add(it)
+                    uids.add(it.author)
+                    comments.add(it.copy(key = commentSnapshot.key ?: "")) // Store comment ID for pagination
                 }
             }
 
-            // Fetch profile pictures and usernames for all UIDs
-            fetchCommentUserData(uids) { profilesAndUsernames ->
-                // Now associate profile pictures and usernames with comments
-                comments.forEach { comment ->
-                    val (profilePictureUrl, username) = profilesAndUsernames[comment.author] ?: Pair("", "")
-                    comment.profilePictureUrl = profilePictureUrl
-                    comment.username = username
-                }
-                onCommentsFetched(comments)
-            }
+
+            onCommentsFetched(comments)
         }
 
         override fun onCancelled(error: DatabaseError) {
@@ -584,17 +615,17 @@ fun fetchCommentsForPost(
     })
 }
 
-
-
 fun fetchCommentUserData(
     uids: Set<String>,
     onProfilesFetched: (Map<String, Pair<String, String>>) -> Unit // Map<uid, Pair<profilePictureUrl, username>>
 ) {
     val ref = FirebaseDatabase.getInstance().reference.child("userdata")
 
-    val profilesAndUsernames = mutableMapOf<String, Pair<String, String>>() // Map<uid, Pair(profilePictureUrl, username)>
+    val profilesAndUsernames =
+        mutableMapOf<String, Pair<String, String>>() // Map<uid, Pair(profilePictureUrl, username)>
 
-    val tasks = mutableListOf<Task<DataSnapshot>>()  // List to store our tasks for concurrent fetching
+    val tasks =
+        mutableListOf<Task<DataSnapshot>>()  // List to store our tasks for concurrent fetching
 
     uids.forEach { uid ->
         // Get both profile picture and username
@@ -605,7 +636,8 @@ fun fetchCommentUserData(
         task.addOnCompleteListener { result ->
             if (result.isSuccessful) {
                 val userDataSnapshot = result.result
-                val profilePictureUrl = userDataSnapshot?.child("profile")?.getValue(String::class.java)
+                val profilePictureUrl =
+                    userDataSnapshot?.child("profile")?.getValue(String::class.java)
                 val username = userDataSnapshot?.child("username")?.getValue(String::class.java)
 
                 if (profilePictureUrl != null && username != null) {
@@ -621,8 +653,50 @@ fun fetchCommentUserData(
     }
 }
 
-
-
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CommentInputWithSend(
+    onSendClick: (String) -> Unit,
+    onTextChange: (String) -> Unit,
+    text: String,
+    modifier: Modifier
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        TextField(
+            value = text,
+            onValueChange = onTextChange,
+            modifier = Modifier
+                .weight(1f),
+            placeholder = {
+                Text(
+                    "Type a message...",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            singleLine = true,
+            trailingIcon = {
+                IconButton(onClick = { onSendClick(text) }) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.send_24px),
+                        contentDescription = "Send Message",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            },
+            colors = TextFieldDefaults.colors(
+                focusedContainerColor = MaterialTheme.colorScheme.background,
+                unfocusedContainerColor = MaterialTheme.colorScheme.background,
+                focusedIndicatorColor = MaterialTheme.colorScheme.primary,
+                unfocusedIndicatorColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        )
+    }
+}
 
 @Composable
 fun RatingBar(
@@ -644,47 +718,6 @@ fun RatingBar(
                 }
                 Icon(painter = starIcon, contentDescription = "Star $i")
             }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun CommentInputWithSend(
-    onSendClick: (String) -> Unit,  // Callback when the "Send" button is clicked
-    onTextChange: (String) -> Unit,  // Callback when the text is changed
-    text: String,  // The current text in the input field
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // TextField for input
-        TextField(
-            value = text,
-            onValueChange = onTextChange,
-            modifier = Modifier
-                .weight(1f)  // This makes the TextField take up all available space
-                .padding(end = 8.dp),  // Space between TextField and Send button
-            placeholder = { Text("Type a message...", style = MaterialTheme.typography.bodyLarge) },
-            singleLine = true,
-            colors = TextFieldDefaults.colors(
-                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                    focusedIndicatorColor = MaterialTheme.colorScheme.primary,
-                    unfocusedIndicatorColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-        )
-
-        // Send button
-        IconButton(onClick = { onSendClick(text) }) {
-            Icon(
-                painter = painterResource(id = R.drawable.send_24px),  // Using Material Icon for Send
-                contentDescription = "Send Message",
-                tint = MaterialTheme.colorScheme.primary
-            )
         }
     }
 }
@@ -798,5 +831,70 @@ fun saveToUserLibrary(
         onResult(true, "Saved to library, opening app...")
     } catch (e: IOException) {
         onResult(false, "Error saving to library: ${e.message}")
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun VoteElement(modifier: Modifier = Modifier) {
+    var selected by remember { mutableStateOf<String?>(null) }
+
+    Box (
+        modifier = modifier
+    ) {
+        Row(
+            modifier = Modifier.background(MaterialTheme.colorScheme.background),
+            horizontalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            IconButton(
+                onClick = {
+                    selected = if (selected == "like") null else "like"
+                },
+                modifier = Modifier
+                    .background(
+                        if (selected == "like") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.background,
+                        RoundedCornerShape(topStart = 8.dp, bottomStart = 8.dp)
+                    )
+                    .border(
+                        1.dp,
+                        MaterialTheme.colorScheme.outlineVariant,
+                        RoundedCornerShape(topStart = 8.dp, bottomStart = 8.dp)
+                    )
+                    .height(32.dp)
+                    .width(48.dp)
+                    .padding(8.dp)
+            ) {
+                Icon(
+                    painter = painterResource(if (selected == "like") R.drawable.thumb_up_filled_24px else R.drawable.thumb_up_24px),
+                    contentDescription = "Like",
+                    tint = if (selected == "like") MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onBackground
+                )
+            }
+
+            IconButton(
+                onClick = {
+                    selected = if (selected == "dislike") null else "dislike"
+                },
+                modifier = Modifier
+                    .background(
+                        if (selected == "dislike") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.background,
+                        RoundedCornerShape(topEnd = 8.dp, bottomEnd = 8.dp)
+                    )
+                    .border(
+                        1.dp,
+                        MaterialTheme.colorScheme.outlineVariant,
+                        RoundedCornerShape(topEnd = 8.dp, bottomEnd = 8.dp)
+                    )
+                    .height(32.dp)
+                    .width(48.dp)
+                    .padding(8.dp)
+            ) {
+                Icon(
+                    painter = painterResource(if (selected == "dislike") R.drawable.thumb_down_filled_24px else R.drawable.thumb_down_24px),
+                    contentDescription = "Dislike",
+                    tint = if (selected == "dislike") MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onBackground
+                )
+            }
+        }
     }
 }

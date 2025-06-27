@@ -9,19 +9,26 @@ import androidx.activity.compose.*
 import androidx.activity.result.contract.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
+import androidx.compose.ui.graphics.*
 import androidx.compose.ui.platform.*
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.*
+import androidx.compose.ui.text.input.*
 import androidx.compose.ui.unit.*
-import androidx.core.net.*
 import com.google.android.gms.auth.api.signin.*
 import com.google.android.gms.common.api.*
 import com.google.firebase.*
 import com.google.firebase.auth.*
+import com.sflightx.app.animation.*
+import com.sflightx.app.dialog.*
+import com.sflightx.app.layout.*
+import com.sflightx.app.layout.components.*
 import com.sflightx.app.ui.theme.*
 import kotlinx.coroutines.*
+
 
 class LoginActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -30,7 +37,17 @@ class LoginActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             SFlightXTheme {
-                LoginLayout()
+                AnimatedGradientBackground(
+                    modifier = Modifier.background(MaterialTheme.colorScheme.background)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        LoginLayout()
+                    }
+                }
             }
         }
     }
@@ -41,20 +58,23 @@ class LoginActivity : ComponentActivity() {
 @Composable
 fun LoginLayout() {
     val context = LocalContext.current
-    val activity = context as? Activity // Cast safely to Activity
+    val activity = context as? Activity
     var showDialog by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Handle physical back press
     BackHandler {
         showDialog = true
     }
 
     if (showDialog) {
-        ConfirmationDialog(
+        M3ConfirmationDialog(
+            title = "Skip Login?",
+            message = "You may not be able to use all functionality throughout the app.",
+            confirmButtonText = "Yes",
+            dismissButtonText = "Cancel",
             onConfirm = {
                 context.startActivity(Intent(context, MainActivity::class.java))
-                activity?.finish() // Finish LoginActivity safely
+                activity?.finish()
             },
             onDismiss = {
                 showDialog = false
@@ -63,6 +83,7 @@ fun LoginLayout() {
     }
 
     Scaffold(
+        containerColor = Color.Transparent,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
             BottomAppBar(
@@ -88,26 +109,23 @@ fun LoginLayout() {
             Column(modifier = Modifier.padding(8.dp)) {
                 Text(
                     text = "Hello!",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontSize = (MaterialTheme.typography.titleLarge.fontSize.value * 3f).sp,
-                    modifier = Modifier.padding(bottom = 8.dp)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontSize = (MaterialTheme.typography.headlineSmall.fontSize.value * 3f).sp
                 )
                 Text(
                     text = "Log In to our services to get started.",
-                    style = MaterialTheme.typography.titleSmall,
+                    style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 24.dp)
                 )
-                HorizontalDivider(
-                    modifier = Modifier.padding(bottom = 24.dp),
-                    thickness = 1.dp,
-                )
-                MainLayout(snackbarHostState = snackbarHostState) // <-- Pass snackbarHostState if needed
+                MainLayout(snackbarHostState = snackbarHostState)
             }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 @Suppress("DEPRECATION")
 @Composable
 fun MainLayout(snackbarHostState: SnackbarHostState) {
@@ -121,17 +139,20 @@ fun MainLayout(snackbarHostState: SnackbarHostState) {
     }
 
     if (showDialog) {
-        ConfirmationDialog(
+        M3ConfirmationDialog(
+            title = "Skip Login?",
+            message = "You may not be able to use all functionality throughout the app.",
+            confirmButtonText = "Yes",
+            dismissButtonText = "Cancel",
             onConfirm = {
                 context.startActivity(Intent(context, MainActivity::class.java))
-                context.finish()
+                activity.finish()
             },
             onDismiss = {
                 showDialog = false
             }
         )
     }
-
 
     val signInOptions = remember {
         GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
@@ -166,88 +187,207 @@ fun MainLayout(snackbarHostState: SnackbarHostState) {
 
             } catch (e: ApiException) {
                 scope.launch {
-                    snackbarHostState.showSnackbar("Authentication Failed: ${e.message} ${GoogleSignInStatusCodes.getStatusCodeString(e.statusCode)}")
+                    snackbarHostState.showSnackbar(
+                        "Authentication Failed: ${e.message} ${
+                            GoogleSignInStatusCodes.getStatusCodeString(
+                                e.statusCode
+                            )
+                        }"
+                    )
                 }
             }
         }
     )
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var showSheet by remember { mutableStateOf(false) }
 
+    if (showSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showSheet = false },
+            sheetState = sheetState,
+            shape = MaterialTheme.shapes.extraLarge, // Expressive
+            tonalElevation = 8.dp,                   // Expressive/Elevated
+            dragHandle = {
+                Box(
+                    Modifier
+                        .width(36.dp)
+                        .height(4.dp)
+                        .padding(top = 12.dp)
+                        .background(
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
+                            shape = MaterialTheme.shapes.small
+                        )
+                )
+            }
+        ) {
+            LoginPanelContent(
+                onDismiss = { scope.launch { sheetState.hide(); showSheet = false } }
+            )
+        }
+    }
     Column {
-        Button(
-            onClick = {
+        LoginButtonGroupWithIcons(
+            onEmail = {
                 scope.launch {
-                    snackbarHostState.showSnackbar("Email sign-in coming soon")
+                    showSheet = true
                 }
             },
-            modifier = Modifier.padding(bottom = 8.dp)
-        ) {
-            Text("Continue using Email")
-        }
-
-        Button(
-            onClick = {
+            onPhone = {
                 scope.launch {
                     snackbarHostState.showSnackbar("Phone sign-in coming soon")
                 }
             },
-            modifier = Modifier.padding(bottom = 8.dp)
-        ) {
-            Text("Continue using Phone")
-        }
-
-        OutlinedButton(
-            onClick = {
+            onGoogle = {
                 val signInIntent = googleSignInClient.signInIntent
                 launcher.launch(signInIntent)
-            },
-            modifier = Modifier.padding(bottom = 24.dp),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary)
-        ) {
-            Text(
-                text = "Sign In with Google",
-                color = MaterialTheme.colorScheme.tertiary
-            )
-        }
-        Row {
-            Text(
-                text = "Terms and Conditions",
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = (MaterialTheme.typography.titleSmall.fontSize.value * 0.9f).sp,
-                modifier = Modifier.padding(end = 8.dp).clickable{
-                    val intent = Intent(Intent.ACTION_VIEW, "https://sflightx.com/legal/terms".toUri())
-                    context.startActivity(intent)
-                },
-            )
-            Text(
-                text = "Privacy Policy",
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = (MaterialTheme.typography.titleSmall.fontSize.value * 0.9f).sp,
-                modifier = Modifier.clickable{
-                    val intent = Intent(Intent.ACTION_VIEW, "https://sflightx.com/legal/privacy".toUri())
-                    context.startActivity(intent)
-                },
-            )
-        }
+            }
+        )
+        LegalFooter(context)
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun ConfirmationDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = { onDismiss() },
-        title = { Text("Skip Login?") },
-        text = { Text("You may not be able to use all functionality throughout the app.") },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text("Yes")
+fun LoginButtonGroupWithIcons(
+    onEmail: () -> Unit,
+    onPhone: () -> Unit,
+    onGoogle: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        M3Button(
+            iconResId = R.drawable.mail_24px,
+            contentDescription = "Sign in with Email",
+            onClick = onEmail,
+            modifier = Modifier
+                .weight(1f)
+                .height(64.dp),
+            buttonType = M3ButtonType.FilledTonal
+        )
+        M3Button(
+            iconResId = R.drawable.call_24px,
+            contentDescription = "Sign in with Phone",
+            onClick = onPhone,
+            modifier = Modifier
+                .weight(1f)
+                .height(64.dp),
+            buttonType = M3ButtonType.FilledTonal
+        )
+        M3Button(
+            iconResId = R.drawable.google,
+            contentDescription = "Sign in with Google",
+            onClick = onGoogle,
+            modifier = Modifier
+                .weight(1f)
+                .height(64.dp),
+            buttonType = M3ButtonType.FilledTonal
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+fun LoginPanelContent(
+    onDismiss: () -> Unit
+) {
+    val focusManager = LocalFocusManager.current
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+    var loading by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier
+            .navigationBarsPadding()
+            .padding(horizontal = 32.dp, vertical = 24.dp)
+    ) {
+        Text(
+            text = "Sign in",
+            style = MaterialTheme.typography.headlineMedium,
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        OutlinedTextField(
+            value = email,
+            onValueChange = { email = it },
+            label = { Text("Email") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.small,
+            keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
+            enabled = !loading
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        OutlinedTextField(
+            value = password,
+            onValueChange = { password = it },
+            label = { Text("Password") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.small,
+            visualTransformation = PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Done),
+            enabled = !loading
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (loading) {
+                Row(
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    CircularWavyProgressIndicator(
+                        modifier = Modifier.padding(8.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                    )
+                }
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
+            M3Button(
+                onClick = {
+                    loading = true
+                    error = null
+                    if (email.isBlank() || password.isBlank()) {
+                        error = "Please fill in all fields"
+                        loading = false
+                    } else {
+
+                    }
+                    focusManager.clearFocus()
+                },
+                modifier = Modifier
+                    .height(64.dp)
+                    .weight(1f),
+                enabled = !loading,
+                contentDescription = "Confirm",
+                text = "Log In",
+                buttonType = M3ButtonType.FilledTonal
+            )
         }
-    )
+
+        if (error != null) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(error!!, color = MaterialTheme.colorScheme.error)
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        M3Button(
+            onClick = { loading = false },
+            contentDescription = "Cancel",
+            text = "Cancel",
+            buttonType = M3ButtonType.Text
+        )
+    }
 }

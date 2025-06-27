@@ -15,6 +15,7 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import com.sflightx.app.R
+import com.sflightx.app.`class`.ThemeMode
 
 private val lightScheme = lightColorScheme(
     primary = primaryLight,
@@ -112,27 +113,32 @@ val MyAppFontFamily = FontFamily(
 
 @Composable
 fun SFlightXTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    content: @Composable() () -> Unit
+    content: @Composable () -> Unit
 ) {
     val context = LocalContext.current
     val themePreferences = ThemePreferences(context)
 
-    // Fetch the 'Material You' setting from SharedPreferences
     val dynamicColor = themePreferences.isMaterialYouEnabled()
+    val systemTheme = themePreferences.getAppTheme()
 
-    val colorScheme = when {
+    val darkTheme = when (systemTheme) {
+        ThemeMode.DARK  -> true
+        ThemeMode.LIGHT -> false
+        else -> isSystemInDarkTheme()
+    }
+
+    val expressiveScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
-
         darkTheme -> darkScheme
         else -> lightScheme
     }
 
     MaterialTheme(
-        colorScheme = colorScheme,
+        colorScheme = expressiveScheme,
         typography = defaultTypography,
+        shapes = expressiveShapes,
         content = content
     )
 }

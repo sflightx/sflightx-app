@@ -3,7 +3,6 @@
 package com.sflightx.app
 
 
-import android.Manifest
 import android.annotation.*
 import android.app.*
 import android.app.Activity.RESULT_OK
@@ -12,10 +11,8 @@ import android.content.pm.*
 import android.graphics.*
 import android.net.*
 import android.os.*
-import android.provider.*
 import android.widget.*
 import androidx.activity.*
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.*
 import androidx.activity.result.contract.*
 import androidx.browser.customtabs.*
@@ -31,15 +28,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.draw.*
 import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.*
 import androidx.compose.ui.input.nestedscroll.*
 import androidx.compose.ui.platform.*
 import androidx.compose.ui.res.*
-import androidx.compose.ui.text.*
 import androidx.compose.ui.text.style.*
 import androidx.compose.ui.unit.*
-import androidx.core.app.*
-import androidx.core.content.*
 import androidx.core.net.*
 import coil.compose.*
 import com.google.firebase.*
@@ -49,9 +44,11 @@ import com.google.firebase.storage.*
 import com.google.gson.*
 import com.google.gson.reflect.*
 import com.sflightx.app.bottomsheet.*
-import com.sflightx.app.layout.*
-import com.sflightx.app.task.*
-import com.sflightx.app.ui.*
+import com.sflightx.app.`class`.InAppNotification
+import com.sflightx.app.`class`.LibraryEntry
+import com.sflightx.app.dialog.*
+import com.sflightx.app.layout.edit.*
+import com.sflightx.app.layout.home.*
 import com.sflightx.app.ui.theme.*
 import com.sflightx.library.imagecrop.*
 import kotlinx.coroutines.*
@@ -75,9 +72,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             SFlightXTheme {
                 GlobalBottomSheetHost {
-                    MainAppLayout(
-                        storagePermissionCode
-                    )
+                    MainAppLayout()
                 }
 
             }
@@ -119,7 +114,6 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainAppLayout(
-    storagePermissionCode: Int
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val bottomSheetController = LocalBottomSheetController.current
@@ -128,7 +122,7 @@ fun MainAppLayout(
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    val color = colorScheme.background.toArgb()
+    colorScheme.background.toArgb()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var showBottomSheet by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
@@ -249,15 +243,21 @@ fun MainAppLayout(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(
-                        "SFlightX",
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
                 },
                 navigationIcon = {
+                    Icon(
+                        painter = painterResource(R.drawable.sflightx_logo),
+                        contentDescription = "Logo",
+                        tint = Color.Unspecified,
+                        modifier = Modifier.clip(CircleShape).size(48.dp).padding(start = 8.dp)
+                    )
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = colorScheme.background,
+                    titleContentColor = colorScheme.onBackground,
+                ),
+                actions = {
                     val user = FirebaseAuth.getInstance().currentUser
-
                     IconButton(modifier = Modifier.padding(end = 8.dp), onClick = {
                         if (user != null) {
                             showBottomSheet = true
@@ -282,21 +282,6 @@ fun MainAppLayout(
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = colorScheme.background,
-                    titleContentColor = colorScheme.onBackground,
-                ),
-                actions = {
-                    IconButton(onClick = {
-                        val intent = Intent(context, SettingsActivity::class.java)
-                        context.startActivity(intent)
-                    }) {
-                        Icon(
-                            imageVector = ImageVector.vectorResource(id = R.drawable.settings_24px),
-                            contentDescription = "Localized description"
-                        )
-                    }
-                },
             )
         },
         bottomBar = {
@@ -313,7 +298,8 @@ fun MainAppLayout(
                         }
                         Icon(
                             painter = painterResource(id = iconRes), // Replace with your drawable resource
-                            contentDescription = "Home"
+                            contentDescription = "Home",
+                            modifier = Modifier.size(24.dp)
                         )
                     },
                     label = { Text("Home") }
@@ -329,7 +315,8 @@ fun MainAppLayout(
                         }
                         Icon(
                             painter = painterResource(id = iconRes), // Replace with your drawable resource
-                            contentDescription = "BlueprintData"
+                            contentDescription = "Blueprint",
+                            modifier = Modifier.size(24.dp)
                         )
                     },
                     label = { Text("Blueprints") }
@@ -345,18 +332,39 @@ fun MainAppLayout(
                         }
                         Icon(
                             painter = painterResource(id = iconRes), // Replace with your drawable resource
-                            contentDescription = "Home"
+                            contentDescription = "News",
+                            modifier = Modifier.size(24.dp)
                         )
                     },
                     label = { Text("News") }
+                )
+                NavigationBarItem(
+                    selected = selectedTab == 3,
+                    onClick = { selectedTab = 3 },
+                    icon = {
+                        val iconRes = if (selectedTab == 3) {
+                            R.drawable.rocket_filled
+                        } else {
+                            R.drawable.rocket
+                        }
+                        Icon(
+                            painter = painterResource(id = iconRes), // Replace with your drawable resource
+                            contentDescription = "Manifest",
+                            modifier = Modifier.size(24.dp)
+                        )
+                    },
+                    label = { Text("Manifest") }
                 )
             }
         },
         floatingActionButton = {
             ExpandableFab(
                 onUploadClick = {
+                    /*
                     var url = "https://help.sflightx.com/sflightx-app/upload-using-app"
                     openCustomTab(context, url, color)
+                     */
+                    openApp(context, "com.StefMorojna.SpaceflightSimulator")
                 },
                 onCreateClick = {
                     Toast.makeText(context, "Soon!", Toast.LENGTH_SHORT).show()
@@ -370,111 +378,47 @@ fun MainAppLayout(
                 .fillMaxSize()
         ) {
             when (selectedTab) {
-                0 -> HomeContent(context, storagePermissionCode)
+                0 -> HomeContent(snackbarHostState)
                 1 -> EditContent(context, snackbarHostState)
                 2 -> NewsContent()
+                3 -> NewsContent()
             }
         }
         FirebaseNotificationSnackbar()
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeContent(context: Context, storagePermissionCode: Int) {
-    val activity = context as? Activity
-    var showAllItems by remember { mutableStateOf(false) }
-    val database = FirebaseDatabase.getInstance()
+fun HomeContent(snackbarHostState: SnackbarHostState) {
 
-    // Live data to hold the fetched blueprints
-    var blueprintData by remember { mutableStateOf<List<BlueprintData>>(emptyList()) }
-
-    // Fetch data from Firebase Realtime DatabaseManager when composable is first loaded
-    LaunchedEffect(Unit) {
-        val blueprintRef = database.getReference("upload/blueprint")
-
-        blueprintRef.get().addOnSuccessListener { snapshot ->
-            if (snapshot.exists()) {
-                // Assuming the data is structured as a map of items
-                val blueprintDataList =
-                    snapshot.children.mapNotNull { it.getValue(BlueprintData::class.java) }
-                blueprintData = blueprintDataList.reversed()
-            }
-        }.addOnFailureListener {
-            // Handle errors
-        }
-    }
+    val tabTitles = listOf("Home", "Following")
+    var selectedTabIndex by remember { mutableIntStateOf(0) }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp)
     ) {
-        // Header and See More Button
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
-                text = "Latest SFS Blueprints",
-                color = colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier
-                    .padding(bottom = 8.dp)
-                    .weight(1f)
-            )
-            /*
-            OutlinedButton(
-                onClick = {},
-                modifier = Modifier.padding(bottom = 8.dp)
-            ) {
-                Text("See More")
-            }
-            */
-        }
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-
-        ) {
-            val itemsToShow = if (showAllItems) blueprintData else blueprintData.take(10)
-
-            itemsToShow.forEach { blueprint ->
-                LoadBlueprintDesign(
-                    blueprint,
-                    modifier = Modifier
-                    .padding(horizontal = 8.dp)
-                    .width(200.dp)
-                    .clip(RoundedCornerShape(16.dp)),
-                    showAuthor = true
+        PrimaryTabRow(selectedTabIndex = selectedTabIndex) {
+            tabTitles.forEachIndexed { index, title ->
+                Tab(
+                    selected = selectedTabIndex == index,
+                    onClick = { selectedTabIndex = index },
+                    text = {
+                        Text(
+                            text = title,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 )
             }
         }
-    }
-
-    // Handle permissions
-    if (ContextCompat.checkSelfPermission(
-            activity!!,
-            Manifest.permission.READ_EXTERNAL_STORAGE
-        ) != PackageManager.PERMISSION_GRANTED
-    ) {
-        if (ActivityCompat.shouldShowRequestPermissionRationale(
-                activity,
-                Manifest.permission.READ_EXTERNAL_STORAGE
-            )
-        ) {
-            ActivityCompat.requestPermissions(
-                activity,
-                arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE),
-                storagePermissionCode
-            )
-        } else {
-            openSettings(activity)
+        Box {
+            when (selectedTabIndex) {
+                0 -> HomeTabContent(snackbarHostState)
+                1 -> FollowingTabContent()
+            }
         }
     }
 }
@@ -506,11 +450,11 @@ fun EditContent(context: Context, snackbarHostState: SnackbarHostState) {
             }
         }
         Box(
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier.padding(top = 16.dp)
         ) {
             when (selectedTabIndex) {
-                0 -> DownloadContent(context, snackbarHostState)
-                1 -> GameFileContent(context, snackbarHostState)
+                0 -> DownloadTabContent(context, snackbarHostState)
+                1 -> GameFileTabContent()
             }
         }
     }
@@ -521,83 +465,8 @@ fun NewsContent() {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .padding(8.dp)
-                .verticalScroll(rememberScrollState())
-        ) {
-            Text(
-                text = "Latest News",
-                color = colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.titleLarge
-            )
-        }
-    }
-}
 
-@Composable
-fun DownloadContent(context: Context, snackbarHostState: SnackbarHostState) {
-    var library by remember { mutableStateOf<List<LibraryEntry>>(emptyList()) }
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-    ) {
-        LaunchedEffect(Unit) {
-            val result = loadUserLibrary(context)
-
-            if (result.isSuccess) {
-                val data = result.getOrDefault(emptyMap())
-                library = data.values.sortedByDescending { it.timestamp }
-            } else {
-                val error = result.exceptionOrNull()?.message ?: "Unknown error"
-                snackbarHostState.showSnackbar("Error: $error")
-            }
-        }
-
-        // Handle empty library state
-        if (library.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("No blueprints in your library yet.")
-            }
-        } else {
-            LibraryList(
-                library = library,
-            )
-        }
-    }
-}
-
-@Composable
-fun GameFileContent(context: Context, snackbarHostState: SnackbarHostState) {
-    /* RequestStorageAccess { pickedDir ->
-        // You now have access to the Blueprints folder
-        pickedDir.listFiles().forEach { folder ->
-            val blueprintJson = folder.findFile("blueprint.json")
-            val json = blueprintJson?.uri?.let { uri ->
-                val stream = context.contentResolver.openInputStream(uri)
-                stream?.bufferedReader()?.use { it.readText() }
-            }
-
-            Log.d("Blueprint", json ?: "Empty")
-        }
-    }
-    */
-    BlueprintFolderAccess()
-}
-
-@SuppressLint("QueryPermissionsNeeded")
-private fun openSettings(activity: Activity) {
-    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-        data = "package:${activity.packageName}".toUri()
-    }
-    if (intent.resolveActivity(activity.packageManager) != null) {
-        activity.startActivity(intent)
     }
 }
 
@@ -619,134 +488,6 @@ fun ensureDirectoryExists(context: Context): File? {
     }
 
     return targetDirectory // Return the directory object
-}
-
-@Composable
-fun ProfileBottomSheetContent(
-    onChangeName: () -> Unit,
-    onChangeProfilePicture: () -> Unit,
-    onLogout: () -> Unit,
-    onClose: () -> Unit
-) {
-    val clipboardManager = LocalClipboardManager.current
-    val context = LocalContext.current
-    var userData by remember { mutableStateOf<UserData?>(null) }
-    val user = FirebaseAuth.getInstance().currentUser
-    val uid = user?.uid
-
-    LaunchedEffect(uid) {
-        if (uid != null) {
-            val fetchedUser = getUserByUid(uid)
-            userData = fetchedUser
-        }
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(24.dp)
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-
-
-            IconButton(onClick = {
-                if (user != null) {
-                    val intent = Intent(context, ViewUserActivity::class.java)
-                    intent.putExtra("key", uid)
-                    intent.putExtra("data", userData)
-                    context.startActivity(intent)
-                } else {
-                    val intent = Intent(context, LoginActivity::class.java)
-                    context.startActivity(intent)
-                    (context as Activity).finish()
-                }
-            }) {
-                if (user?.photoUrl != null) {
-                    AsyncImage(
-                        model = user.photoUrl,
-                        contentDescription = "Profile",
-                        modifier = Modifier
-                            .size(64.dp)
-                            .clip(CircleShape)
-                    )
-                } else {
-                    Icon(
-                        painter = painterResource(id = R.drawable.account_circle_24px),
-                        contentDescription = "Account",
-                        tint = colorScheme.onSurface
-                    )
-                }
-            }
-            Column(
-                modifier = Modifier.padding(16.dp)
-            ) {
-                Text(
-                    text = "Hello, ${user?.displayName}",
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-                Text(
-                    text = "UID: ${user?.uid}",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = colorScheme.onSurfaceVariant,
-                    modifier = Modifier
-                        .padding(bottom = 16.dp)
-                        .clickable {
-                            clipboardManager.setText(AnnotatedString(user?.uid.toString()))
-                            Toast.makeText(context, "UID copied to clipboard", Toast.LENGTH_SHORT)
-                                .show()
-                        }
-                )
-            }
-        }
-        HorizontalDivider(thickness = 2.dp, modifier = Modifier.padding(bottom = 16.dp))
-        Text(
-            text = "Profile Options",
-            style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
-
-        Button(
-            onClick = {
-                onChangeName()
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 8.dp)
-        ) {
-            Text("Change Name")
-        }
-
-        Button(
-            onClick = {
-                onChangeProfilePicture()
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 8.dp)
-        ) {
-            Text("Change Profile Picture")
-        }
-
-        OutlinedButton(
-            onClick = {
-                onLogout()
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-        ) {
-            Text("Log Out")
-        }
-
-        TextButton(
-            onClick = onClose,
-            modifier = Modifier.align(Alignment.End)
-        ) {
-            Text("Close")
-        }
-    }
 }
 
 @OptIn(ExperimentalAnimationApi::class)
@@ -824,98 +565,7 @@ fun ExpandableFab(
     }
 }
 
-@Composable
-fun UpdateDisplayNameDialog(
-    onDismiss: () -> Unit,
-    onSuccess: () -> Unit
-) {
-    var newName by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Edit Display Name") },
-        text = {
-            Column {
-                OutlinedTextField(
-                    value = newName,
-                    onValueChange = { newName = it },
-                    label = { Text("New Name") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                errorMessage?.let {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        it,
-                        color = colorScheme.onErrorContainer,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    isLoading = true
-                    updateFirebaseDisplayName(
-                        newName = newName.trim(),
-                        onSuccess = {
-                            isLoading = false
-                            onSuccess()
-                            onDismiss()
-                        },
-                        onFailure = {
-                            isLoading = false
-                            errorMessage = it.message ?: "Update failed"
-                        }
-                    )
-                },
-                enabled = newName.isNotBlank() && !isLoading
-            ) {
-                Text("OK")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
-    )
-}
-
-fun updateFirebaseDisplayName(
-    newName: String,
-    onSuccess: () -> Unit,
-    onFailure: (Exception) -> Unit
-) {
-    val user = FirebaseAuth.getInstance().currentUser
-    if (user != null) {
-        val uid = user.uid
-        val profileUpdates = userProfileChangeRequest {
-            displayName = newName
-        }
-
-        user.updateProfile(profileUpdates)
-            .addOnCompleteListener { task ->
-                if (task.isSuccessful) {
-                    val databaseRef =
-                        FirebaseDatabase.getInstance().getReference("userdata").child(uid)
-                            .child("username")
-
-                    databaseRef.setValue(newName)
-                        .addOnSuccessListener { onSuccess() }
-                        .addOnFailureListener { dbError -> onFailure(dbError) }
-
-                } else {
-                    onFailure(task.exception ?: Exception("Unknown error"))
-                }
-            }
-    } else {
-        onFailure(Exception("No authenticated user"))
-    }
-}
 
 fun uploadProfilePictureToFirebase(
     bitmap: Bitmap?,

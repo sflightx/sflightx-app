@@ -36,7 +36,7 @@ fun ErrorScreen(error: String) {
             .verticalScroll(rememberScrollState())
     ) {
         Text(
-            text = "Oops! The app crashed 😓",
+            text = "Oops! The app crashed.",
             style = MaterialTheme.typography.headlineSmall
         )
         Spacer(modifier = Modifier.height(16.dp))
